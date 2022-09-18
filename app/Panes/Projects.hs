@@ -5,11 +5,7 @@
 {-# LANGUAGE TypeSynonymInstances #-}
 {-# OPTIONS_GHC -fno-warn-orphans #-}
 
-module Panes.Projects
-  (
-    projectsPane
-  )
-where
+module Panes.Projects () where
 
 import           Brick
 import           Brick.Panes
@@ -67,8 +63,3 @@ mkListEnt pr = (role pr, name pr)
 
 instance HasSelection (PaneState Projects MyWorkEvent) where
   selectedProject = fmap snd . fmap snd . listSelectedElement . pL
-  selectedLocation = undefined
-
-
-projectsPane :: Projects
-projectsPane = undefined -- KWQ: use Proxy instead??  Or just make Pane argument a Kind?

@@ -4,7 +4,7 @@
 
 module Panes.Operations
   (
-    OperationsPane(..)
+    OperationsPane
   )
 where
 
@@ -15,7 +15,7 @@ import qualified Data.List as List
 import           Defs
 
 
-data OperationsPane = OperationsPane
+data OperationsPane
 
 instance Pane WName MyWorkEvent OperationsPane () where
   data (PaneState OperationsPane MyWorkEvent) = Unused

@@ -1,6 +1,7 @@
 {-# LANGUAGE DataKinds #-}
 {-# LANGUAGE LambdaCase #-}
 {-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE TypeApplications #-}
 
 module Main where
 
@@ -24,10 +25,10 @@ import qualified Graphics.Vty as Vty
 
 import           Defs
 import           Panes.FileMgr
-import           Panes.Location
+import           Panes.Location ()
 import           Panes.Operations
 import           Panes.ProjInfo
-import           Panes.Projects
+import           Panes.Projects ()
 import           Panes.Summary
 import           Paths_mywork ( version )
 
@@ -92,24 +93,24 @@ drawMyWork mws =
           borderWithLabel  (str $ " mywork " <> showVersion version <> " ")
           $ vBox $ catMaybes
           [
-            panelDraw SummaryPane mws
+            panelDraw @SummaryPane mws
           , Just hBorder
           , Just $ hBox $ catMaybes
             [ hLimitPercent 25
-              <$> panelDraw (mws ^. onPane FileMgrPane . myProjectsL) mws
+              <$> panelDraw @Projects mws
             , Just vBorder
             , Just $ vBox $ catMaybes $
-              let pinfo = panelDraw ProjInfoPane mws
+              let pinfo = panelDraw @ProjInfoPane mws
               in [ pinfo
                  , const hBorder <$> pinfo
-                 , panelDraw (Location "" Nothing mempty) mws -- KWQ: ugh!
+                 , panelDraw @Location mws
                  ]
             ]
           , Just hBorder
-          , panelDraw OperationsPane mws
+          , panelDraw @OperationsPane mws
           ]
         ]
-      allPanes = catMaybes [ panelDraw FileMgrPane mws
+      allPanes = catMaybes [ panelDraw @FileMgrPane mws
                            ]
                  <> mainPanes
       disableLower = \case
@@ -131,7 +132,7 @@ handleMyWorkEvent = \case
       liftIO $ Vty.refresh vty
     VtyEvent (Vty.EvKey (Vty.KFun 1) []) -> do
       fmgr <- liftIO initFileMgr
-      modify ((focusRingUpdate myWorkFocusL) . (onPane FileMgrPane .~ fmgr))
+      modify ((focusRingUpdate myWorkFocusL) . (onPane @FileMgrPane .~ fmgr))
     -- Otherwise, allow the Panes in the Panel to handle the event
     ev -> do proj0 <- gets selectedProject
              get >>= (\s -> handleFocusAndPanelEvents myWorkFocusL s ev) >>= put
@@ -142,11 +143,11 @@ handleMyWorkEvent = \case
              when new $
                modify $ \s -> s
                               & focusRingUpdate myWorkFocusL
-                              & onPane projectsPane %~ updatePane prjs
-                              & onPane FileMgrPane %~ updatePane False
+                              & onPane @Projects %~ updatePane prjs
+                              & onPane @FileMgrPane %~ updatePane False
              modify $ \s ->
                         case mprj s of
-                          Just p -> s & onPane locationPane %~ updatePane p
+                          Just p -> s & onPane @Location %~ updatePane p
                           _ -> s
              modify $ focusRingUpdate myWorkFocusL
 

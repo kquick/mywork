@@ -3,6 +3,7 @@
 {-# LANGUAGE LambdaCase #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE TypeApplications #-}
 {-# LANGUAGE TypeFamilies #-}
 {-# LANGUAGE TypeSynonymInstances #-}
 {-# LANGUAGE UndecidableInstances #-}
@@ -10,7 +11,7 @@
 
 module Panes.FileMgr
   (
-    FileMgrPane(..)
+    FileMgrPane
   , initFileMgr
   , myProjectsL
   )
@@ -35,7 +36,7 @@ import           System.FilePath ( (</>) )
 import           Defs
 
 
-data FileMgrPane = FileMgrPane
+data FileMgrPane
 
 instance Pane WName MyWorkEvent FileMgrPane Bool where
   data (PaneState FileMgrPane MyWorkEvent) =
@@ -73,11 +74,11 @@ myProjectsL :: Lens' (PaneState FileMgrPane MyWorkEvent) Projects
 myProjectsL f wc = (\n -> wc { myProjects = n }) <$> f (myProjects wc)
 
 
-instance ( PanelOps WName MyWorkEvent FileMgrPane panes MyWorkCore
+instance ( PanelOps FileMgrPane WName MyWorkEvent panes MyWorkCore
          , HasProjects (PaneState FileMgrPane MyWorkEvent)
          )
   => HasProjects (Panel WName MyWorkEvent MyWorkCore panes) where
-  getProjects = getProjects . view (onPane FileMgrPane)
+  getProjects = getProjects . view (onPane @FileMgrPane)
 
 instance HasProjects (PaneState FileMgrPane MyWorkEvent) where
   getProjects ps = (newProjects ps, myProjects ps)

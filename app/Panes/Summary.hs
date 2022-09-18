@@ -4,7 +4,7 @@
 
 module Panes.Summary
   (
-    SummaryPane(..)
+    SummaryPane
   )
 where
 
@@ -16,7 +16,7 @@ import           Data.Maybe ( catMaybes )
 import           Defs
 
 
-data SummaryPane = SummaryPane
+data SummaryPane
 
 instance Pane WName MyWorkEvent SummaryPane () where
   data (PaneState SummaryPane MyWorkEvent) = Unused

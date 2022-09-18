@@ -5,7 +5,7 @@
 
 module Panes.ProjInfo
   (
-    ProjInfoPane(..)
+    ProjInfoPane
   )
 where
 
@@ -16,7 +16,7 @@ import qualified Data.List as DL
 import           Defs
 
 
-data ProjInfoPane = ProjInfoPane
+data ProjInfoPane
 
 instance Pane WName MyWorkEvent ProjInfoPane () where
   data (PaneState ProjInfoPane MyWorkEvent) = Unused
