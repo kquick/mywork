@@ -150,8 +150,8 @@ handleMyWorkEvent = \case
       else do
         fmgr <- liftIO initFileMgr
         put $ s
-          & focusRingUpdate myWorkFocusL
           & onPane @FileMgrPane .~ fmgr
+          & focusRingUpdate myWorkFocusL
     VtyEvent (Vty.EvKey (Vty.KFun 2) []) -> do
       modify (   (focusRingUpdate myWorkFocusL)
                . (onPane @AddProjPane %~ initAddProj)
