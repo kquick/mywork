@@ -13,6 +13,7 @@ module Panes.FileMgr
   (
     FileMgrPane
   , initFileMgr
+  , isFileMgrActive
   , myProjectsL
   )
 where
@@ -28,6 +29,7 @@ import           Control.Monad ( unless )
 import           Control.Monad.IO.Class ( liftIO )
 import           Data.Aeson ( ToJSON, FromJSON, decode, encode )
 import qualified Data.ByteString.Lazy as BS
+import           Data.Maybe ( isJust )
 import qualified Data.Sequence as Seq
 import qualified Graphics.Vty as Vty
 import qualified System.Directory as D
@@ -74,6 +76,10 @@ fBrowser f ps = (\n -> ps { fB = n }) <$> f (fB ps)
 
 myProjectsL :: Lens' (PaneState FileMgrPane MyWorkEvent) Projects
 myProjectsL f wc = (\n -> wc { myProjects = n }) <$> f (myProjects wc)
+
+
+isFileMgrActive :: PaneState FileMgrPane MyWorkEvent -> Bool
+isFileMgrActive = isJust . fB
 
 
 instance ( PanelOps FileMgrPane WName MyWorkEvent panes MyWorkCore

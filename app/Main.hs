@@ -136,8 +136,14 @@ handleMyWorkEvent = \case
       vty <- getVtyHandle
       liftIO $ Vty.refresh vty
     VtyEvent (Vty.EvKey (Vty.KFun 1) []) -> do
-      fmgr <- liftIO initFileMgr
-      modify ((focusRingUpdate myWorkFocusL) . (onPane @FileMgrPane .~ fmgr))
+      s <- get
+      if s ^. onPane @FileMgrPane . to isFileMgrActive
+      then return ()
+      else do
+        fmgr <- liftIO initFileMgr
+        put $ s
+          & focusRingUpdate myWorkFocusL
+          & onPane @FileMgrPane .~ fmgr
     -- Otherwise, allow the Panes in the Panel to handle the event
     ev -> do pnm0 <- gets selectedProject
              loc0 <- gets selectedLocation
