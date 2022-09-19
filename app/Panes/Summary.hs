@@ -10,7 +10,6 @@ where
 
 import           Brick
 import           Brick.Panes
-import qualified Data.List as List
 import           Data.Maybe ( catMaybes )
 
 import           Defs
@@ -28,20 +27,23 @@ instance Pane WName MyWorkEvent SummaryPane () where
 drawSummary :: Projects -> Widget WName
 drawSummary prjcts =
     let prjs = projects prjcts
-        prjcnt = str $ "# Projects=" <> show (length prjs) <> subcounts
-        subcounts = (" (" <>)
-                    $ (<> ")")
-                    $ List.intercalate ", "
-                    [ show r <> "=" <> show (length fp)
+        prjcnt = (str "# Projects: " <+>)
+                    $ foldr ((<+>) . (<+> str ", "))
+                      (str ("Total=" <> show (length prjs)))
+                    [ withAttr (roleAttr r) (str $ show r)
+                      <+> str "="
+                      <+> str (show (length fp))
                     | r <- [minBound .. maxBound]
                     , let fp = filter (isRole r) prjs
                     , not (null fp)
                     ]
         isRole r p = r == role p
-        dateRange = str (show (minimum projDates)
-                         <> ".."
-                         <> show (maximum projDates)
-                        )
+        dateRange = if null projDates
+                    then str ""
+                    else str (show (minimum projDates)
+                              <> ".."
+                              <> show (maximum projDates)
+                             )
         locDates prj = catMaybes (locatedOn <$> locations prj)
         projDates = concatMap locDates prjs
     in vLimit 1
