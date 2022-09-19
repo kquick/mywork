@@ -139,10 +139,9 @@ handleMyWorkEvent = \case
     --   * CTRL-q quits
     --   * CTRL-l refreshes vty
     --   * ESC dismisses any modal window
-    VtyEvent (Vty.EvKey (Vty.KChar 'q') [Vty.MCtrl])  -> halt
-    VtyEvent (Vty.EvKey (Vty.KChar 'l') [Vty.MCtrl])  -> do
-      vty <- getVtyHandle
-      liftIO $ Vty.refresh vty
+    VtyEvent (Vty.EvKey (Vty.KChar 'q') [Vty.MCtrl]) -> halt
+    VtyEvent (Vty.EvKey (Vty.KChar 'l') [Vty.MCtrl]) ->
+      liftIO . Vty.refresh =<< getVtyHandle
     VtyEvent (Vty.EvKey (Vty.KFun 1) []) -> do
       s <- get
       if s ^. onPane @FileMgrPane . to isFileMgrActive
