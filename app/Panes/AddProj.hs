@@ -21,7 +21,7 @@ import           Brick.Forms
 import           Brick.Panes
 import           Brick.Widgets.Border
 import qualified Brick.Widgets.Center as C
-import           Control.Lens
+import           Control.Lens hiding ( under )
 import           Data.Maybe ( isJust )
 import qualified Data.Sequence as Seq
 import           Data.Text ( Text )
@@ -108,7 +108,13 @@ initAddProj ps =
     Just _ -> ps
     Nothing ->
       let label s = padBottom (Pad 1) . label' s
-          label' s w = (vLimit 1 $ hLimit 15 $ fill ' ' <+> str s <+> str ": ") <+> w
+          label' s w = (vLimit 1 $ hLimit labelWidth
+                        $ fill ' ' <+> str s <+> str ": ") <+> w
+          under s w = padBottom (Pad 1)
+                      $ vLimit 1
+                      $ padLeft (Pad (labelWidth + 4))
+                      $ str s <+> w
+          labelWidth = 15
           npForm =
             newForm
             [ label "Project name" @@=
@@ -119,8 +125,7 @@ initAddProj ps =
               , (Just Work, (WName "+Prj:Grp:Work"), "Work")
               , (Nothing, (WName "+Prj:Grp:Other"), "Other")
               ]
-            , (\w -> padBottom (Pad 1) $ vLimit 1 $ padLeft (Pad 19)
-                     $ str "Other group: " <+> w) @@=
+            , under "Other group: " @@=
               editTextField npGroupT (WName "+Proj:Grp:Text") (Just 1)
             , label "Role" @@=
               radioField npRole
@@ -136,8 +141,7 @@ initAddProj ps =
               , (Right Haskell, (WName "+Prj:Lang:Haskell"), "Haskell")
               , (Left "", (WName "+Prj:Lang:Other"), "Custom")
               ]
-            , (\w -> padBottom (Pad 1) $ vLimit 1 $ padLeft (Pad 19)
-                     $ str "Custom value: " <+> w) @@=
+            , under "Custom value: " @@=
               editTextField npLangT (WName "+Prj:Lang:Text") (Just 1)
             , label "Description" @@=
               editTextField npDesc (WName "+Prj:Desc") Nothing
