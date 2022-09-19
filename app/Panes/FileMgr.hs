@@ -54,14 +54,16 @@ instance Pane WName MyWorkEvent FileMgrPane Bool where
   drawPane ps gs = drawFB gs <$> fB ps
   focusable _ ps = case fB ps of
                      Nothing -> mempty
-                     Just _ -> Seq.fromList [ WFBrowser, WFSaveBtn ]
+                     Just _ -> Seq.fromList [ WName "FMgr:Browser"
+                                            , WName "FMgr:SaveBtn"
+                                            ]
   handlePaneEvent bs ev ts =
     let isSearching = maybe False fileBrowserIsSearching (ts^.fBrowser)
     in case ev of
       Vty.EvKey Vty.KEsc [] | not isSearching -> return $ ts & fBrowser .~ Nothing
       _ -> case bs^.getFocus of
-             Focused (Just WFBrowser) -> handleFileLoadEvent ev ts
-             Focused (Just WFSaveBtn) -> handleFileSaveEvent ev ts
+             Focused (Just (WName "FMgr:Browser")) -> handleFileLoadEvent ev ts
+             Focused (Just (WName "FMgr:SaveBtn")) -> handleFileSaveEvent ev ts
              _ -> return ts
   updatePane newFlag ps = ps { newProjects = newFlag }
 
@@ -90,7 +92,7 @@ drawFB ds b =
   let width = 70
       fcsd = ds^.getFocus.to focused
       browserPane fb =
-        let hasFocus = fcsd == Just WFBrowser
+        let hasFocus = fcsd == Just (WName "FMgr:Browser")
         in vLimitPercent 55 $ hLimitPercent width
            $ titledB hasFocus "Choose a file"
            $ renderFileBrowser hasFocus fb
@@ -109,7 +111,7 @@ drawFB ds b =
                                   $ withDefAttr a'Error
                                   $ strWrap
                                   $ X.displayException e
-      savePane = (if fcsd == Just WFSaveBtn
+      savePane = (if fcsd == Just (WName "FMgr:SaveBtn")
                   then withAttr a'Selected
                   else id)
                  $ str "[SAVE]"
@@ -181,5 +183,5 @@ initFileMgr = do
   let pFile = dataDir </> "projects.json"
   e <- D.doesFileExist pFile
   unless e $ BS.writeFile pFile ""
-  fb <- newFileBrowser selectNonDirectories WFBrowser (Just dataDir)
+  fb <- newFileBrowser selectNonDirectories (WName "FMgr:Browser") (Just dataDir)
   return $ initPaneState fb & fBrowser .~ Just fb

@@ -3,6 +3,7 @@
 {-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE LambdaCase #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
+{-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE StandaloneDeriving #-}
 {-# LANGUAGE TypeApplications #-}
 {-# LANGUAGE UndecidableInstances #-}
@@ -64,18 +65,17 @@ data MyWorkCore = MyWorkCore { projFile :: FilePath
 
 initMyWorkCore :: MyWorkCore
 initMyWorkCore = MyWorkCore { projFile = "projects.json"
-                            , myWorkFocus = focusRing [ WProjList, WLocation ]
+                            , myWorkFocus = focusRing [ WName "Pane:ProjList"
+                                                      , WName "Pane:Location"
+                                                      ]
                             }
 
 coreWorkFocusL :: Lens' MyWorkCore (FocusRing WName)
 coreWorkFocusL f c = (\f' -> c { myWorkFocus = f' }) <$> f (myWorkFocus c)
 
 
-data WName = WSummary | WProjList | WLocation | WNotes | WOps
-           | WFileMgr | WFBrowser | WFSaveBtn
-           | WPList | WPFilter | WLList | WNList | WNoteScroll
-  deriving (Eq, Ord, Show)  -- KWQ: renderEditor and renderList require Show... why?!
-
+newtype WName = WName { wName :: Text }
+  deriving (Eq, Ord, Show)
 
 
 -- | Adds a border with a title to the current widget.  First argument is True if

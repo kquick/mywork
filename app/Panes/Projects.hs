@@ -27,12 +27,13 @@ instance Pane WName MyWorkEvent Projects Projects where
   type (InitConstraints Projects s) = ( HasProjects s )
   type (DrawConstraints Projects s WName) = ( HasFocus s WName )
   type (EventType Projects WName MyWorkEvent) = BrickEvent WName MyWorkEvent
-  initPaneState s = let prjs = projects $ snd $ getProjects s
-                        pl = list WPList (V.fromList (mkListEnt <$> prjs)) 1
-                        ps = editor WPFilter (Just 1) ""
-                    in P pl ps
+  initPaneState s =
+    let prjs = projects $ snd $ getProjects s
+        pl = list (WName "Projs:List") (V.fromList (mkListEnt <$> prjs)) 1
+        ps = editor (WName "Projs:Filter") (Just 1) ""
+    in P pl ps
   drawPane ps gs =
-    let isFcsd = gs^.getFocus.to focused == Just WProjList
+    let isFcsd = gs^.getFocus.to focused == Just (WName "Pane:ProjList")
         renderListEnt _ (r,n) = withAttr (roleAttr r) $ txt n
         lst = renderList renderListEnt isFcsd (pL ps)
         srch = str "Search: " <+> renderEditor (txt . head) isFcsd (pS ps)
@@ -44,7 +45,7 @@ instance Pane WName MyWorkEvent Projects Projects where
                 _ -> return ps
        ps2 <- ps1 & pSrch %%~ \w -> nestEventM' w (handleEditorEvent ev)
        return ps2
-  focusable _ _ = Seq.singleton WProjList
+  focusable _ _ = Seq.singleton (WName "Pane:ProjList")
   updatePane newprjs =
     (pList %~ listReplace (V.fromList (mkListEnt <$> projects newprjs)) (Just 0))
     .
