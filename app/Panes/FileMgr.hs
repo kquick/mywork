@@ -171,14 +171,23 @@ handleFileLoadEvent ev ts =
 handleFileSaveEvent :: Vty.Event
                     -> PaneState FileMgrPane MyWorkEvent
                     -> EventM WName es (PaneState FileMgrPane MyWorkEvent)
-handleFileSaveEvent _ ts =
+handleFileSaveEvent ev ts =
   case fileBrowserCursor =<< ts^.fBrowser of
     Nothing -> return ts
-    Just f -> let fp = fileInfoFilePath f
-              in liftIO (D.doesDirectoryExist fp) >>= \case
-                    True -> return ts -- TODO: show error
-                    False -> do liftIO $ BS.writeFile fp (encode $ myProjects ts)
-                                return $ ts & fBrowser .~ Nothing
+    Just f ->
+      case ev of
+        Vty.EvKey Vty.KEnter [] -> doSave f
+        Vty.EvKey (Vty.KChar ' ') [] -> doSave f
+        _ -> return ts
+  where
+    doSave f =
+      let fp = fileInfoFilePath f
+      in liftIO (D.doesDirectoryExist fp) >>= \case
+        True ->
+          return $ ts
+          & errMsgL .~ "Cannot save to a directory: please select a file"
+        False -> do liftIO $ BS.writeFile fp (encode $ myProjects ts)
+                    return $ ts & fBrowser .~ Nothing
 
 
 instance ToJSON Projects
