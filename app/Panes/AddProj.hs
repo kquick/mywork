@@ -22,6 +22,8 @@ import           Brick.Panes
 import           Brick.Widgets.Border
 import qualified Brick.Widgets.Center as C
 import           Control.Lens hiding ( under )
+import           Data.Either ( isRight )
+import qualified Data.List as DL
 import           Data.Maybe ( isJust )
 import qualified Data.Sequence as Seq
 import           Data.Text ( Text )
@@ -103,7 +105,8 @@ instance Pane WName MyWorkEvent AddProjPane () where
                          pf
                errmsg = "Correct invalid entries before accepting: "
            in return $ s { nErr = Just $ errmsg <> badflds }
-    ev -> \s -> s { nErr = Nothing }
+    ev -> \s -> validateForm
+                $ s { nErr = Nothing }
                 & (nPFL . _Just %%~ \w -> nestEventM' w (handleFormEvent ev))
 
 
@@ -115,6 +118,25 @@ isAddProjActive = isJust . nPF
 
 newProject :: Lens' (PaneState AddProjPane MyWorkEvent) (Maybe Project)
 newProject f s = (\n -> s { nPrj = n}) <$> f (nPrj s)
+
+
+validateForm :: EventM WName es (PaneState AddProjPane MyWorkEvent)
+             -> EventM WName es (PaneState AddProjPane MyWorkEvent)
+validateForm inner = do
+  s <- inner
+  case s ^. nPFL of
+    Nothing -> return s
+    Just pf ->
+      let isOK1 = or [ formState pf ^. npGroupG /= Nothing
+                     , formState pf ^. npGroupT /= ""
+                     ]
+          tgtfld1 = WName "Other Group Text"
+          isOK2 = or [ isRight (formState pf ^. npLangR)
+                     , formState pf ^. npLangT /= ""
+                     ]
+          tgtfld2 = WName "Other Language Name"
+      in return $ s & nPFL %~ fmap (setFieldValid isOK1 tgtfld1)
+                    & nPFL %~ fmap (setFieldValid isOK2 tgtfld2)
 
 
 initAddProj :: Projects
@@ -144,9 +166,9 @@ initAddProj prjs ps =
               radioField npGroupG
               [ (Just Personal, (WName "+Prj:Grp:Personal"), "Personal")
               , (Just Work, (WName "+Prj:Grp:Work"), "Work")
-              , (Nothing, (WName "+Prj:Grp:Other"), "Other")
+              , (Nothing, (WName "Other Group Text"), "Other")
               ]
-            , under "Other group: " @@=
+            , under "...: " @@=
               editTextField npGroupT (WName "+Proj:Grp:Text") (Just 1)
             , label "Role" @@=
               radioField npRole
@@ -160,9 +182,9 @@ initAddProj prjs ps =
               [ (Right C, (WName "+Prj:Lang:C"), "C")
               , (Right CPlusPlus, (WName "+Prj:Lang:CPP"), "C++")
               , (Right Haskell, (WName "+Prj:Lang:Haskell"), "Haskell")
-              , (Left "", (WName "+Prj:Lang:Other"), "Custom")
+              , (Left "", (WName "Other Language Name"), "Custom")
               ]
-            , under "Custom value: " @@=
+            , under "...: " @@=
               editTextField npLangT (WName "+Prj:Lang:Text") (Just 1)
             , label "Description" @@=
               editTextField npDesc (WName "+Prj:Desc") Nothing
