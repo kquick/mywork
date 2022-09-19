@@ -31,6 +31,7 @@ executable mywork
     autogen-modules:  Paths_mywork
     other-modules:    Paths_mywork
                       Defs
+                      Panes.AddProj
                       Panes.FileMgr
                       Panes.Location
                       Panes.Operations

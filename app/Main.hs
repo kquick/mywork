@@ -7,6 +7,7 @@ module Main where
 
 import           Brick hiding ( Location )
 import           Brick.Focus
+import           Brick.Forms
 import           Brick.Panes
 import           Brick.Widgets.Border
 import           Brick.Widgets.Border.Style
@@ -24,6 +25,7 @@ import           Graphics.Vty ( defAttr, withStyle, defaultStyleMask
 import qualified Graphics.Vty as Vty
 
 import           Defs
+import           Panes.AddProj
 import           Panes.FileMgr
 import           Panes.Location ()
 import           Panes.Notes
@@ -36,6 +38,7 @@ import           Paths_mywork ( version )
 
 type MyWorkState = Panel WName MyWorkEvent MyWorkCore
                    '[ SummaryPane
+                    , AddProjPane
                     , OperationsPane
                     , ProjInfoPane
                     , NotesPane
@@ -47,6 +50,7 @@ type MyWorkState = Panel WName MyWorkEvent MyWorkCore
 initialState :: MyWorkState
 initialState = focusRingUpdate myWorkFocusL
                $ addToPanel Never
+               $ addToPanel (WhenFocusedModalHandlingAllEvents Nothing)
                $ addToPanel Never
                $ addToPanel Never
                $ addToPanel WhenFocused
@@ -76,6 +80,9 @@ myattrs = attrMap defAttr
           , (listAttr, defAttr `withStyle` defaultStyleMask)
           , (listSelectedAttr, defAttr `withStyle` bold)
           , (listSelectedFocusedAttr, defAttr `withStyle` reverseVideo)
+
+          , (invalidFormInputAttr, fg red `withStyle` bold)
+          , (focusedFormInputAttr, defAttr `withStyle` reverseVideo)
 
           , (a'RoleAuthor, fg $ rgbColor 0 255 (0::Int))
           , (a'RoleMaintainer, fg $ rgbColor 0 200 (30::Int))
@@ -116,6 +123,7 @@ drawMyWork mws =
           ]
         ]
       allPanes = catMaybes [ panelDraw @FileMgrPane mws
+                           , panelDraw @AddProjPane mws
                            ]
                  <> mainPanes
       disableLower = \case
@@ -144,11 +152,16 @@ handleMyWorkEvent = \case
         put $ s
           & focusRingUpdate myWorkFocusL
           & onPane @FileMgrPane .~ fmgr
+    VtyEvent (Vty.EvKey (Vty.KFun 2) []) -> do
+      modify (   (focusRingUpdate myWorkFocusL)
+               . (onPane @AddProjPane %~ initAddProj)
+             )
     -- Otherwise, allow the Panes in the Panel to handle the event
     ev -> do
       changes <- handleLocationChange
                  $ handleProjectChange
                  $ handleNewProjects
+                 $ handleNewProject
                  $ do s <- get
                       s' <- handleFocusAndPanelEvents myWorkFocusL s ev
                       put s'
@@ -167,6 +180,21 @@ handleNewProjects innerHandler = do
              . (onPane @FileMgrPane %~ updatePane AckNewProjects)
            )
   return (mustUpdate, prjs)
+
+handleNewProject :: EventM WName MyWorkState Bool
+                 -> EventM WName MyWorkState Bool
+handleNewProject innerHandler = do
+  wasActive <- gets (view $ onPane @AddProjPane . to isAddProjActive)
+  forceChange <- innerHandler
+  nowActive <- gets (view $ onPane @AddProjPane . to isAddProjActive)
+  let changed = wasActive && not nowActive
+  when changed $ modify $ \s ->
+    let mbNewProj = s ^. onPane @AddProjPane . newProject
+    in case mbNewProj of
+         Just newProj ->
+           s & onPane @FileMgrPane %~ updatePane (AddProject newProj)
+         Nothing -> s
+  return (forceChange || changed)
 
 handleProjectChange :: EventM WName MyWorkState (Bool, Projects)
                     -> EventM WName MyWorkState (Bool, Maybe Project)

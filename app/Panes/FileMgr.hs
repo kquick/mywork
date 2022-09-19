@@ -12,9 +12,9 @@
 module Panes.FileMgr
   (
     FileMgrPane
+  , FileMgrOps(..)
   , initFileMgr
   , isFileMgrActive
-  , myProjectsL
   )
 where
 
@@ -40,7 +40,10 @@ import           Defs
 
 data FileMgrPane
 
-instance Pane WName MyWorkEvent FileMgrPane Bool where
+data FileMgrOps = AckNewProjects
+                | AddProject Project
+
+instance Pane WName MyWorkEvent FileMgrPane FileMgrOps where
   data (PaneState FileMgrPane MyWorkEvent) =
     FB { fB :: Maybe (FileBrowser WName)
          -- ^ A Nothing value indicates the modal is not currently active
@@ -67,8 +70,9 @@ instance Pane WName MyWorkEvent FileMgrPane Bool where
              Focused (Just (WName "FMgr:Browser")) -> handleFileLoadEvent ev ts
              Focused (Just (WName "FMgr:SaveBtn")) -> handleFileSaveEvent ev ts
              _ -> return ts
-  updatePane newFlag ps = ps { newProjects = newFlag }
-
+  updatePane = \case
+    AckNewProjects -> \ps -> ps { newProjects = False }
+    AddProject prj -> (myProjectsL <>~ Projects [prj]) . (newProjectsL .~ True)
 
 
 fBrowser :: Lens' (PaneState FileMgrPane MyWorkEvent) (Maybe (FileBrowser WName))
@@ -76,6 +80,9 @@ fBrowser f ps = (\n -> ps { fB = n }) <$> f (fB ps)
 
 myProjectsL :: Lens' (PaneState FileMgrPane MyWorkEvent) Projects
 myProjectsL f wc = (\n -> wc { myProjects = n }) <$> f (myProjects wc)
+
+newProjectsL :: Lens' (PaneState FileMgrPane MyWorkEvent) Bool
+newProjectsL f wc = (\n -> wc { newProjects = n }) <$> f (newProjects wc)
 
 
 isFileMgrActive :: PaneState FileMgrPane MyWorkEvent -> Bool

@@ -1,6 +1,7 @@
 {-# LANGUAGE DeriveGeneric #-}
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE FlexibleInstances #-}
+{-# LANGUAGE GeneralizedNewtypeDeriving #-}
 {-# LANGUAGE LambdaCase #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE OverloadedStrings #-}
@@ -22,7 +23,7 @@ import           GHC.Generics ( Generic )
 
 
 newtype Projects = Projects { projects :: [Project] }
-  deriving Generic
+  deriving (Generic, Monoid, Semigroup)
 
 data Project = Project { name :: Text
                        , role :: Role
