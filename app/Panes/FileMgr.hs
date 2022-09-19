@@ -27,7 +27,8 @@ import qualified Control.Exception as X
 import           Control.Lens
 import           Control.Monad ( unless )
 import           Control.Monad.IO.Class ( liftIO )
-import           Data.Aeson ( ToJSON, FromJSON, decode, encode )
+import           Data.Aeson ( ToJSON, FromJSON, eitherDecode, encode
+                            , parseJSON, withObject, (.:), (.:?), (.!=) )
 import qualified Data.ByteString.Lazy as BS
 import           Data.Maybe ( isJust )
 import qualified Data.Sequence as Seq
@@ -51,12 +52,13 @@ instance Pane WName MyWorkEvent FileMgrPane FileMgrOps where
          -- ^ Current loaded set of projects
        , newProjects :: Bool
          -- ^ True when myProjects has been updated; clear this via updatePane
+       , errMsg :: String
        }
   type (InitConstraints FileMgrPane s) = ()
   type (DrawConstraints FileMgrPane s WName) = ( HasFocus s WName )
   type (EventConstraints FileMgrPane e) = ( HasFocus e WName )
-  initPaneState _ = FB Nothing (Projects mempty) False
-  drawPane ps gs = drawFB gs <$> fB ps
+  initPaneState _ = FB Nothing (Projects mempty) False ""
+  drawPane ps gs = drawFB ps gs <$> fB ps
   focusable _ ps = case fB ps of
                      Nothing -> mempty
                      Just _ -> Seq.fromList [ WName "FMgr:Browser"
@@ -84,6 +86,8 @@ myProjectsL f wc = (\n -> wc { myProjects = n }) <$> f (myProjects wc)
 newProjectsL :: Lens' (PaneState FileMgrPane MyWorkEvent) Bool
 newProjectsL f wc = (\n -> wc { newProjects = n }) <$> f (newProjects wc)
 
+errMsgL :: Lens' (PaneState FileMgrPane MyWorkEvent) String
+errMsgL f wc = (\n -> wc { errMsg = n }) <$> f (errMsg wc)
 
 isFileMgrActive :: PaneState FileMgrPane MyWorkEvent -> Bool
 isFileMgrActive = isJust . fB
@@ -100,8 +104,9 @@ instance HasProjects (PaneState FileMgrPane MyWorkEvent) where
 
 
 drawFB :: DrawConstraints FileMgrPane drawstate WName
-       => drawstate -> FileBrowser WName -> Widget WName
-drawFB ds b =
+       => PaneState FileMgrPane MyWorkEvent
+       -> drawstate -> FileBrowser WName -> Widget WName
+drawFB ps ds b =
   let width = 70
       fcsd = ds^.getFocus.to focused
       browserPane fb =
@@ -119,7 +124,11 @@ drawFB ds b =
         , hCenter $ txt "ESC: quit"
         ]
       errDisplay fb = case fileBrowserException fb of
-                        Nothing -> emptyWidget
+                        Nothing -> if null $ errMsg ps
+                                   then emptyWidget
+                                   else hLimitPercent width
+                                        $ withDefAttr a'Error
+                                        $ strWrap $ errMsg ps
                         Just e -> hLimitPercent width
                                   $ withDefAttr a'Error
                                   $ strWrap
@@ -146,17 +155,16 @@ handleFileLoadEvent ev ts =
                 in liftIO $ D.doesDirectoryExist fp >>= \e ->
                   if e
                   then return $ ts & fBrowser .~ Just b
-                  else do newprjs <- decode <$> liftIO (BS.readFile fp)
-                          -- Setting fBrowser to Nothing: exit from modal
+                  else do newprjs <- eitherDecode <$> liftIO (BS.readFile fp)
                           case newprjs of
-                            Nothing -> return $ ts & fBrowser .~ Nothing
-                            Just prjs -> return $ (ts { newProjects = True})
+                            Left er -> return $ ts & errMsgL .~ er
+                            Right prjs -> return $ (ts { newProjects = True})
                                          & fBrowser .~ Nothing
                                          & myProjectsL .~ prjs
       case ev of
         Vty.EvKey Vty.KEnter [] -> selectFile
         -- EvKey (KChar ' ') [] -> selectFile -- override filebrowser's default multi-select ability
-        _ -> return $ ts & fBrowser .~ Just b
+        _ -> return $ ts & fBrowser .~ Just b & errMsgL .~ ""
     Nothing -> return ts  -- shouldn't happen
 
 
@@ -182,7 +190,15 @@ instance ToJSON Location
 instance ToJSON Note
 
 instance FromJSON Projects
-instance FromJSON Project
+instance FromJSON Project where
+  parseJSON = withObject "Project" $ \v -> Project
+    <$> v .: "name"
+    <*> v .:? "group" .!= Personal
+    <*> v .: "role"
+    <*> v .: "description"
+    <*> v .: "language"
+    <*> v .: "locations"
+
 instance FromJSON Group
 instance FromJSON Role
 instance FromJSON Language
