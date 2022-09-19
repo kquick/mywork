@@ -145,28 +145,59 @@ handleMyWorkEvent = \case
           & focusRingUpdate myWorkFocusL
           & onPane @FileMgrPane .~ fmgr
     -- Otherwise, allow the Panes in the Panel to handle the event
-    ev -> do pnm0 <- gets selectedProject
-             loc0 <- gets selectedLocation
-             get >>= (\s -> handleFocusAndPanelEvents myWorkFocusL s ev) >>= put
-             (new,prjs) <- gets getProjects
-             when new $
-               modify $ \s -> s
-                              & focusRingUpdate myWorkFocusL
-                              & onPane @Projects %~ updatePane prjs
-                              & onPane @FileMgrPane %~ updatePane False
-             pnm <- gets selectedProject
-             let mbprj = DL.find ((== pnm) . Just . name) (projects prjs)
-             case mbprj of
-               Just p -> do
-                 when (new || pnm /= pnm0) $
-                   modify $ onPane @Location %~ updatePane p
-                 loc1 <- gets selectedLocation
-                 when (new || pnm /= pnm0 || loc1 /= loc0) $
-                   case DL.find ((== loc1) . Just . location) (locations p) of
-                     Just l -> modify $ onPane @NotesPane %~ updatePane l
-                     Nothing -> return ()
-               Nothing -> return ()
-             modify $ focusRingUpdate myWorkFocusL
+    ev -> do
+      changes <- handleLocationChange
+                 $ handleProjectChange
+                 $ handleNewProjects
+                 $ do s <- get
+                      s' <- handleFocusAndPanelEvents myWorkFocusL s ev
+                      put s'
+                      return False
+      when changes $ modify $ focusRingUpdate myWorkFocusL
+
+
+handleNewProjects :: EventM WName MyWorkState Bool
+                  -> EventM WName MyWorkState (Bool, Projects)
+handleNewProjects innerHandler = do
+  forceChange <- innerHandler
+  (new,prjs) <- gets getProjects
+  let mustUpdate = forceChange || new
+  when mustUpdate $
+    modify (   (onPane @Projects %~ updatePane prjs)
+             . (onPane @FileMgrPane %~ updatePane AckNewProjects)
+           )
+  return (mustUpdate, prjs)
+
+handleProjectChange :: EventM WName MyWorkState (Bool, Projects)
+                    -> EventM WName MyWorkState (Bool, Maybe Project)
+handleProjectChange innerHandler = do
+  pnm0 <- gets selectedProject
+  (forceChange, prjs) <- innerHandler
+  pnm <- gets selectedProject
+  let mustUpdate = forceChange || pnm /= pnm0
+  if mustUpdate
+    then case DL.find ((== pnm) . Just . name) (projects prjs) of
+           Just p -> do modify $ onPane @Location %~ updatePane p
+                        return (mustUpdate, Just p)
+           Nothing -> return (mustUpdate, Nothing)
+    else return (mustUpdate, Nothing)
+
+handleLocationChange :: EventM WName MyWorkState (Bool, Maybe Project)
+                     -> EventM WName MyWorkState Bool
+handleLocationChange innerHandler = do
+  loc0 <- gets selectedLocation
+  (forceChange, mbPrj) <- innerHandler
+  loc1 <- gets selectedLocation
+  let mustUpdate = forceChange || loc1 /= loc0
+  case mbPrj of
+    Nothing -> return ()
+    Just p ->
+      when mustUpdate $
+        case DL.find ((== loc1) . Just . location) (locations p) of
+          Just l -> modify $ onPane @NotesPane %~ updatePane l
+          Nothing -> return ()
+  return mustUpdate
+
 
 myWorkFocusL :: Lens' MyWorkState (FocusRing WName)
 myWorkFocusL = onBaseState . coreWorkFocusL
