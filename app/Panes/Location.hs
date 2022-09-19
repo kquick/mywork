@@ -47,3 +47,7 @@ instance Pane WName MyWorkEvent Location Project where
 
 lList :: Lens' (PaneState Location MyWorkEvent) (List WName (Text, Maybe Day))
 lList f ps = (\n -> ps { lL = n }) <$> f (lL ps)
+
+
+instance HasLocation (PaneState Location MyWorkEvent) where
+  selectedLocation = fmap fst . fmap snd . listSelectedElement . lL

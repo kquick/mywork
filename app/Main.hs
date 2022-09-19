@@ -13,7 +13,7 @@ import           Brick.Widgets.Border.Style
 import           Brick.Widgets.Edit
 import           Brick.Widgets.List
 import           Control.Lens
-import           Control.Monad ( guard, when )
+import           Control.Monad ( when )
 import           Control.Monad.IO.Class ( liftIO )
 import qualified Data.List as DL
 import           Data.Maybe ( catMaybes )
@@ -26,6 +26,7 @@ import qualified Graphics.Vty as Vty
 import           Defs
 import           Panes.FileMgr
 import           Panes.Location ()
+import           Panes.Notes
 import           Panes.Operations
 import           Panes.ProjInfo
 import           Panes.Projects ()
@@ -37,6 +38,7 @@ type MyWorkState = Panel WName MyWorkEvent MyWorkCore
                    '[ SummaryPane
                     , OperationsPane
                     , ProjInfoPane
+                    , NotesPane
                     , Location
                     , Projects
                     , FileMgrPane
@@ -47,6 +49,7 @@ initialState = focusRingUpdate myWorkFocusL
                $ addToPanel Never
                $ addToPanel Never
                $ addToPanel Never
+               $ addToPanel WhenFocused
                $ addToPanel WhenFocused
                $ addToPanel WhenFocused
                $ addToPanel (WhenFocusedModal Nothing)
@@ -102,8 +105,10 @@ drawMyWork mws =
             , Just $ vBox $ catMaybes $
               let pinfo = panelDraw @ProjInfoPane mws
               in [ pinfo
-                 , const hBorder <$> pinfo
+                 , const (hBorderWithLabel (str "Locations")) <$> pinfo
                  , panelDraw @Location mws
+                 , const (hBorderWithLabel (str "Notes")) <$> pinfo
+                 , pinfo >> panelDraw @NotesPane mws
                  ]
             ]
           , Just hBorder
@@ -134,21 +139,27 @@ handleMyWorkEvent = \case
       fmgr <- liftIO initFileMgr
       modify ((focusRingUpdate myWorkFocusL) . (onPane @FileMgrPane .~ fmgr))
     -- Otherwise, allow the Panes in the Panel to handle the event
-    ev -> do proj0 <- gets selectedProject
+    ev -> do pnm0 <- gets selectedProject
+             loc0 <- gets selectedLocation
              get >>= (\s -> handleFocusAndPanelEvents myWorkFocusL s ev) >>= put
              (new,prjs) <- gets getProjects
-             let mprj s = do pnm <- selectedProject s
-                             guard (Just pnm /= proj0)
-                             DL.find ((== pnm) . name) (projects prjs)
              when new $
                modify $ \s -> s
                               & focusRingUpdate myWorkFocusL
                               & onPane @Projects %~ updatePane prjs
                               & onPane @FileMgrPane %~ updatePane False
-             modify $ \s ->
-                        case mprj s of
-                          Just p -> s & onPane @Location %~ updatePane p
-                          _ -> s
+             pnm <- gets selectedProject
+             let mbprj = DL.find ((== pnm) . Just . name) (projects prjs)
+             case mbprj of
+               Just p -> do
+                 when (new || pnm /= pnm0) $
+                   modify $ onPane @Location %~ updatePane p
+                 loc1 <- gets selectedLocation
+                 when (new || pnm /= pnm0 || loc1 /= loc0) $
+                   case DL.find ((== loc1) . Just . location) (locations p) of
+                     Just l -> modify $ onPane @NotesPane %~ updatePane l
+                     Nothing -> return ()
+               Nothing -> return ()
              modify $ focusRingUpdate myWorkFocusL
 
 myWorkFocusL :: Lens' MyWorkState (FocusRing WName)

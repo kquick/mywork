@@ -9,14 +9,15 @@
 
 module Defs where
 
-import Brick hiding (Location)
-import Brick.Focus
-import Brick.Panes
-import Brick.Widgets.Border
-import Control.Lens
-import Data.Text ( Text, pack )
-import Data.Time.Calendar
-import GHC.Generics ( Generic )
+import           Brick hiding (Location)
+import           Brick.Focus
+import           Brick.Panes
+import           Brick.Widgets.Border
+import           Control.Lens
+import qualified Data.List as DL
+import           Data.Text ( Text, pack )
+import           Data.Time.Calendar
+import           GHC.Generics ( Generic )
 
 
 newtype Projects = Projects { projects :: [Project] }
@@ -72,7 +73,7 @@ coreWorkFocusL f c = (\f' -> c { myWorkFocus = f' }) <$> f (myWorkFocus c)
 
 data WName = WSummary | WProjList | WLocation | WNotes | WOps
            | WFileMgr | WFBrowser | WFSaveBtn
-           | WPList | WPFilter | WLList
+           | WPList | WPFilter | WLList | WNList | WNoteScroll
   deriving (Eq, Ord, Show)  -- KWQ: renderEditor and renderList require Show... why?!
 
 
@@ -108,7 +109,26 @@ instance ( PanelOps Projects WName MyWorkEvent panes MyWorkCore
          )
   => HasSelection (Panel WName MyWorkEvent MyWorkCore panes) where
   selectedProject = selectedProject . view (onPane @Projects)
-  selectedLocation = undefined
+
+class HasLocation s where
+  selectedLocation :: s -> Maybe Text
+
+instance ( PanelOps Location WName MyWorkEvent panes MyWorkCore
+         , HasLocation (PaneState Location MyWorkEvent)
+         )
+  => HasLocation (Panel WName MyWorkEvent MyWorkCore panes) where
+  selectedLocation = selectedLocation . view (onPane @Location)
+
+
+getCurrentLocation :: HasSelection s
+                   => HasLocation s
+                   => HasProjects s
+                   => s -> Maybe Location
+getCurrentLocation s = do p <- selectedProject s
+                          l <- selectedLocation s
+                          let (_,prjs) = getProjects s
+                          prj <- DL.find ((== p) . name) (projects prjs)
+                          DL.find ((== l) . location) (locations prj)
 
 
 ----------------------------------------------------------------------
