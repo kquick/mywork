@@ -1,3 +1,4 @@
+{-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE TypeFamilies #-}
@@ -22,7 +23,7 @@ import           Defs
 data NotesPane
 
 
-instance Pane WName MyWorkEvent NotesPane Location where
+instance Pane WName MyWorkEvent NotesPane (Maybe Location) where
   data (PaneState NotesPane MyWorkEvent) = N { nL :: List WName Note }
   type (InitConstraints NotesPane s) = ( HasLocation s
                                        , HasProjects s
@@ -33,10 +34,13 @@ instance Pane WName MyWorkEvent NotesPane Location where
                                              )
   initPaneState gs =
     let l = N (list (WName "Notes:List") mempty 1)
-    in maybe l (flip updatePane l) $ getCurrentLocation gs
-  updatePane l ps =
-    let ents = notes l
-    in N $ listReplace (V.fromList ents) (Just 0) (nL ps)
+    in flip updatePane l $ getCurrentLocation gs
+  updatePane mbl ps =
+    case mbl of
+      Just l ->
+        let ents = notes l
+        in N $ listReplace (V.fromList ents) (Just 0) (nL ps)
+      Nothing -> N $ listReplace mempty Nothing (nL ps)
   drawPane ps gs =
     let isFcsd = gs^.getFocus.to focused == Just (WName "Pane:Notes")
         rndr nt = str (show (notedOn nt) <> " -- ")

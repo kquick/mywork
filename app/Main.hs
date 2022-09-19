@@ -194,8 +194,8 @@ handleLocationChange innerHandler = do
     Just p ->
       when mustUpdate $
         case DL.find ((== loc1) . Just . location) (locations p) of
-          Just l -> modify $ onPane @NotesPane %~ updatePane l
-          Nothing -> return ()
+          Just l -> modify $ onPane @NotesPane %~ updatePane (Just l)
+          Nothing -> modify $ onPane @NotesPane %~ updatePane Nothing
   return mustUpdate
 
 
