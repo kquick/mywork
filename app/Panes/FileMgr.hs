@@ -207,12 +207,13 @@ instance FromJSON Note
 -- deriving via Generically Note instance ToJSON Note
 
 
-initFileMgr :: IO (PaneState FileMgrPane MyWorkEvent)
-initFileMgr = do
+initFileMgr :: PaneState FileMgrPane MyWorkEvent
+            -> IO (PaneState FileMgrPane MyWorkEvent)
+initFileMgr prev = do
   dataDir <- D.getXdgDirectory D.XdgData "mywork"
   D.createDirectoryIfMissing True dataDir
   let pFile = dataDir </> "projects.json"
   e <- D.doesFileExist pFile
   unless e $ BS.writeFile pFile ""
   fb <- newFileBrowser selectNonDirectories (WName "FMgr:Browser") (Just dataDir)
-  return $ initPaneState fb & fBrowser .~ Just fb
+  return $ prev & fBrowser .~ Just fb
