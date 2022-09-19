@@ -35,6 +35,8 @@ data AddProjPane
 
 data NewProj = NewProj { _npName :: Text
                        , _npRole :: Role
+                       , _npGroupG :: Maybe Group
+                       , _npGroupT :: Text
                        , _npLangR :: Either Text Language
                        , _npLangT :: Text
                        , _npDesc :: Text
@@ -44,7 +46,7 @@ makeLenses ''NewProj
 
 
 blankNewProj :: NewProj
-blankNewProj = NewProj "" User (Right C) "" ""
+blankNewProj = NewProj "" User (Just Personal) "" (Right C) "" ""
 
 type ProjForm = Form NewProj MyWorkEvent WName
 
@@ -75,6 +77,9 @@ instance Pane WName MyWorkEvent AddProjPane () where
     VtyEvent (Vty.EvKey (Vty.KChar 'd') [Vty.MCtrl]) -> \s ->
       let pf = s ^. nPFL
           np form = Project { name = form ^. npName
+                            , group = case form ^. npGroupG of
+                                Just r -> r
+                                Nothing -> OtherGroup $ form ^. npGroupT
                             , role = form ^. npRole
                             , language = case form ^. npLangR of
                                 r@(Right _) -> r
@@ -108,6 +113,15 @@ initAddProj ps =
             newForm
             [ label "Project name" @@=
               editTextField npName (WName "+Prj:Name") (Just 1)
+            , label' "Group" @@=
+              radioField npGroupG
+              [ (Just Personal, (WName "+Prj:Grp:Personal"), "Personal")
+              , (Just Work, (WName "+Prj:Grp:Work"), "Work")
+              , (Nothing, (WName "+Prj:Grp:Other"), "Other")
+              ]
+            , (\w -> padBottom (Pad 1) $ vLimit 1 $ padLeft (Pad 19)
+                     $ str "Other group: " <+> w) @@=
+              editTextField npGroupT (WName "+Proj:Grp:Text") (Just 1)
             , label "Role" @@=
               radioField npRole
               [ (Author, (WName "+Prj:Role:Author"), "Author")

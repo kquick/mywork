@@ -17,7 +17,7 @@ import           Brick.Panes
 import           Brick.Widgets.Border
 import           Control.Lens
 import qualified Data.List as DL
-import           Data.Text ( Text, pack )
+import           Data.Text ( Text, pack, unpack )
 import           Data.Time.Calendar
 import           GHC.Generics ( Generic )
 
@@ -26,12 +26,16 @@ newtype Projects = Projects { projects :: [Project] }
   deriving (Generic, Monoid, Semigroup)
 
 data Project = Project { name :: Text
+                       , group :: Group
                        , role :: Role
                        , description :: Text
                        , language :: Either Text Language
                        , locations :: [Location]
                        }
   deriving Generic
+
+data Group = Personal | Work | OtherGroup Text
+  deriving (Eq, Generic)
 
 data Role = Author | Maintainer | Contributor | User
   deriving (Show, Enum, Bounded, Eq, Generic)
@@ -57,6 +61,12 @@ numProjects = length . projects
 languageText :: Either Text Language -> Text
 languageText = either id (pack . show)
 
+
+instance Show Group where
+  show = \case
+    Personal -> "Personal"
+    Work -> "Work"
+    OtherGroup g -> unpack g
 
 ----------------------------------------------------------------------
 

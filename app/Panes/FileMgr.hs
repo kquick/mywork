@@ -175,6 +175,7 @@ handleFileSaveEvent _ ts =
 
 instance ToJSON Projects
 instance ToJSON Project
+instance ToJSON Group
 instance ToJSON Role
 instance ToJSON Language
 instance ToJSON Location
@@ -182,6 +183,7 @@ instance ToJSON Note
 
 instance FromJSON Projects
 instance FromJSON Project
+instance FromJSON Group
 instance FromJSON Role
 instance FromJSON Language
 instance FromJSON Location
