@@ -171,7 +171,8 @@ initAddProj prjs ps =
             , under "...: " @@=
               editTextField npGroupT (WName "+Proj:Grp:Text") (Just 1)
             , label "Role" @@=
-              radioField npRole
+              setFieldConcat (hBox . DL.intersperse (str "  "))
+              . radioField npRole
               [ (Author, (WName "+Prj:Role:Author"), "Author")
               , (Maintainer, (WName "+Prj:Role:Maintainer"), "Maintainer")
               , (Contributor, (WName "+Prj:Role:Contributor"), "Contributor")
