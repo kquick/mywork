@@ -25,6 +25,7 @@ import           Control.Lens hiding ( under )
 import           Data.Maybe ( isJust )
 import qualified Data.Sequence as Seq
 import           Data.Text ( Text )
+import qualified Data.Text as T
 import qualified Graphics.Vty as Vty
 
 import           Defs hiding (Location)
@@ -56,15 +57,19 @@ instance Pane WName MyWorkEvent AddProjPane () where
                                                 , nPrj :: Maybe Project
                                                   -- reset to Nothing when nPF
                                                   -- transitions Nothing -> Just
+                                                , nErr :: Maybe Text
                                                 }
   type (EventType AddProjPane WName MyWorkEvent) = BrickEvent WName MyWorkEvent
-  initPaneState _ = NP Nothing Nothing
+  initPaneState _ = NP Nothing Nothing Nothing
   drawPane ps _gs =
     C.centerLayer
     . borderWithLabel (str "New Project")
     . vLimit 25
     . hLimitPercent 65
     . (\f -> vBox [ renderForm f
+                  , padBottom (Pad 1) $ withAttr a'Error
+                    $ maybe emptyWidget txt (nErr ps)
+                  , emptyWidget
                   , vLimit 1 (fill ' ' <+> str "Ctrl-D = accept"
                               <+> fill ' ' <+> str "ESC = abort"
                               <+> fill ' ')
@@ -87,8 +92,19 @@ instance Pane WName MyWorkEvent AddProjPane () where
                             , description = form ^. npDesc
                             , locations = mempty
                             }
-      in return $ s & nPFL .~ Nothing & newProject .~ (np . formState <$> pf)
-    ev -> nPFL . _Just %%~ \w -> nestEventM' w (handleFormEvent ev)
+      in if maybe False allFieldsValid pf
+         then
+           return $ s & nPFL .~ Nothing & newProject .~ (np . formState <$> pf)
+         else
+           let badflds = maybe "none"
+                         (foldr
+                          (\n a -> if T.null a then n else n <> ", " <> a) ""
+                          . fmap wName . invalidFields)
+                         pf
+               errmsg = "Correct invalid entries before accepting: "
+           in return $ s { nErr = Just $ errmsg <> badflds }
+    ev -> \s -> s { nErr = Nothing }
+                & (nPFL . _Just %%~ \w -> nestEventM' w (handleFormEvent ev))
 
 
 nPFL :: Lens' (PaneState AddProjPane MyWorkEvent) (Maybe ProjForm)
@@ -101,9 +117,10 @@ newProject :: Lens' (PaneState AddProjPane MyWorkEvent) (Maybe Project)
 newProject f s = (\n -> s { nPrj = n}) <$> f (nPrj s)
 
 
-initAddProj :: PaneState AddProjPane MyWorkEvent
+initAddProj :: Projects
             -> PaneState AddProjPane MyWorkEvent
-initAddProj ps =
+            -> PaneState AddProjPane MyWorkEvent
+initAddProj prjs ps =
   case nPF ps of
     Just _ -> ps
     Nothing ->
@@ -118,7 +135,11 @@ initAddProj ps =
           npForm =
             newForm
             [ label "Project name" @@=
-              editTextField npName (WName "+Prj:Name") (Just 1)
+              let validate nm = if head nm `elem` (name <$> projects prjs)
+                                then Nothing  -- invalid
+                                else Just $ head nm
+              in editField npName (WName "New Project Name") (Just 1)
+                 id validate (txt . head) id
             , label' "Group" @@=
               radioField npGroupG
               [ (Just Personal, (WName "+Prj:Grp:Personal"), "Personal")
@@ -147,4 +168,4 @@ initAddProj ps =
               editTextField npDesc (WName "+Prj:Desc") Nothing
             ]
             blankNewProj
-      in NP { nPF = Just npForm, nPrj = Nothing }
+      in NP { nPF = Just npForm, nPrj = Nothing, nErr = Nothing }

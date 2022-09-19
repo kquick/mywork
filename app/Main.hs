@@ -151,9 +151,9 @@ handleMyWorkEvent = \case
         s' <- s & onPane @FileMgrPane %%~ liftIO . initFileMgr
         put $ s' & focusRingUpdate myWorkFocusL
     VtyEvent (Vty.EvKey (Vty.KFun 2) []) -> do
-      modify (   (focusRingUpdate myWorkFocusL)
-               . (onPane @AddProjPane %~ initAddProj)
-             )
+      s <- get
+      put $ s & onPane @AddProjPane %~ initAddProj (snd $ getProjects s)
+              & focusRingUpdate myWorkFocusL
     -- Otherwise, allow the Panes in the Panel to handle the event
     ev -> do
       changes <- handleLocationChange
