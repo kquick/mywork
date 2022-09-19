@@ -34,7 +34,7 @@ instance Pane WName MyWorkEvent NotesPane (Maybe Location) where
                                              )
   initPaneState gs =
     let l = N (list (WName "Notes:List") mempty 1)
-    in flip updatePane l $ getCurrentLocation gs
+    in flip updatePane l $ snd <$> getCurrentLocation gs
   updatePane mbl ps =
     case mbl of
       Just l ->

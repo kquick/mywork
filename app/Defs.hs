@@ -134,12 +134,13 @@ instance ( PanelOps Location WName MyWorkEvent panes MyWorkCore
 getCurrentLocation :: HasSelection s
                    => HasLocation s
                    => HasProjects s
-                   => s -> Maybe Location
+                   => s -> Maybe (Project, Location)
 getCurrentLocation s = do p <- selectedProject s
                           l <- selectedLocation s
                           let (_,prjs) = getProjects s
                           prj <- DL.find ((== p) . name) (projects prjs)
-                          DL.find ((== l) . location) (locations prj)
+                          t <- DL.find ((== l) . location) (locations prj)
+                          return (prj, t)
 
 
 ----------------------------------------------------------------------
