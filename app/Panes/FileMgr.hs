@@ -163,7 +163,7 @@ handleFileSaveEvent _ ts =
               in liftIO (D.doesDirectoryExist fp) >>= \case
                     True -> return ts -- TODO: show error
                     False -> do liftIO $ BS.writeFile fp (encode $ myProjects ts)
-                                return ts
+                                return $ ts & fBrowser .~ Nothing
 
 
 instance ToJSON Projects
