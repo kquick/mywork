@@ -204,10 +204,9 @@ handleProjectChange innerHandler = do
   pnm <- gets selectedProject
   let mustUpdate = forceChange || pnm /= pnm0
   if mustUpdate
-    then case DL.find ((== pnm) . Just . name) (projects prjs) of
-           Just p -> do modify $ onPane @Location %~ updatePane p
-                        return (mustUpdate, Just p)
-           Nothing -> return (mustUpdate, Nothing)
+    then let p = DL.find ((== pnm) . Just . name) (projects prjs)
+         in do modify $ onPane @Location %~ updatePane p
+               return (mustUpdate, p)
     else return (mustUpdate, Nothing)
 
 handleLocationChange :: EventM WName MyWorkState (Bool, Maybe Project)

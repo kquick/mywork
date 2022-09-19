@@ -1,4 +1,5 @@
 {-# LANGUAGE FlexibleInstances #-}
+{-# LANGUAGE LambdaCase #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE TypeFamilies #-}
@@ -20,7 +21,7 @@ import qualified Data.Vector as V
 import           Defs
 
 
-instance Pane WName MyWorkEvent Location Project where
+instance Pane WName MyWorkEvent Location (Maybe Project) where
   data (PaneState Location MyWorkEvent) = L { lL :: List WName (Text, Maybe Day) }
   type (InitConstraints Location s) = ( HasSelection s, HasProjects s )
   type (DrawConstraints Location s WName) = ( HasFocus s WName, HasSelection s )
@@ -29,7 +30,7 @@ instance Pane WName MyWorkEvent Location Project where
         update x = do p <- selectedProject gs
                       prj <- DL.find ((== p) . name)
                                      (projects $ snd $ getProjects gs)
-                      return $ updatePane prj x
+                      return $ updatePane (Just prj) x
     in fromMaybe l $ update l
   drawPane ps gs =
     let isFcsd = gs^.getFocus.to focused == Just (WName "Pane:Location")
@@ -42,9 +43,11 @@ instance Pane WName MyWorkEvent Location Project where
   focusable _ ps = focus1If (WName "Pane:Location")
                    $ not $ null $ listElements $ lL ps
   handlePaneEvent _ ev = lList %%~ \w -> nestEventM' w (handleListEvent ev)
-  updatePane prj ps =
-    let ents = [ (location l, locatedOn l) | l <- locations prj ]
-    in L $ listReplace (V.fromList ents) (Just 0) (lL ps)
+  updatePane = \case
+    Nothing -> lList %~ listReplace mempty Nothing
+    Just prj -> let ents = [ (location l, locatedOn l) | l <- locations prj ]
+                    np = if null ents then Nothing else Just 0
+                in lList %~ listReplace (V.fromList ents) np
 
 
 lList :: Lens' (PaneState Location MyWorkEvent) (List WName (Text, Maybe Day))
