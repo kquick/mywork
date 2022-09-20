@@ -151,11 +151,12 @@ initNoteInput curNotes mbNote ps = do
             [
               label "Note" @@=
               let validate = \case
+                    [] -> Nothing
+                    [""] -> Nothing
                     o@(l:_) -> if (l `elem` (noteTitle <$> curNotes)
                                    && (maybe True ((l /=) . noteTitle) mbNote))
                                then Nothing  -- invalid
                                else Just $ T.intercalate "\n" o
-                    o -> Just $ T.intercalate "\n" o
               in editField nnText (WName "New Note")
                  Nothing
                  -- (Just 20)

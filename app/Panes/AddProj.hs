@@ -169,11 +169,12 @@ initAddProj prjs mbProj ps =
             newForm
             [ label "Project name" @@=
               let validate = \case
+                    [] -> Nothing
+                    [""] -> Nothing
                     (nm:_) -> if nm `elem` (name <$> projects prjs) &&
                                  (maybe True ((nm /=) . name) mbProj)
                               then Nothing  -- invalid
                               else Just nm
-                    o -> Just $ T.intercalate "\n" o
               in editField npName (WName "New Project Name") (Just 1)
                  id validate (txt . head) id
             , label' "Group" @@=
