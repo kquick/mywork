@@ -157,13 +157,16 @@ isLocationLocal' l = not $ or [ "http://" `T.isPrefixOf` l
                               , "git@" `T.isPrefixOf` l
                               ]
 
-updateProject :: Project -> Projects -> Projects
-updateProject p (Projects ps) = Projects $ p : filter ((/= name p) . name) ps
+updateProject :: Maybe Text -> Project -> Projects -> Projects
+updateProject onm p (Projects ps) =
+  let oldName = maybe (name p) id onm
+  in Projects $ p : filter ((/= oldName) . name) ps
 
 
-updateLocation :: Location -> Project -> Project
-updateLocation l p =
-  p { locations = l : filter ((/= location l) . location) (locations p) }
+updateLocation :: Maybe Text -> Location -> Project -> Project
+updateLocation ol l p =
+  let oldName = maybe (location l) id ol
+  in p { locations = l : filter ((/= oldName) . location) (locations p) }
 
 
 data OpOn = ProjectOp | LocationOp

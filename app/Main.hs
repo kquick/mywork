@@ -290,16 +290,19 @@ handleConfirmation innerHandler = do
 handleNewProject :: EventM WName MyWorkState Bool
                  -> EventM WName MyWorkState Bool
 handleNewProject innerHandler = do
-  wasActive <- gets (view $ onPane @AddProjPane . to isAddProjActive)
+  let inpOp :: (PaneState AddProjPane MyWorkEvent -> a)
+            -> EventM WName MyWorkState a
+      inpOp o = gets (view $ onPane @AddProjPane . to o)
+  wasActive <- inpOp isAddProjActive
   forceChange <- innerHandler
-  nowActive <- gets (view $ onPane @AddProjPane . to isAddProjActive)
+  nowActive <- inpOp isAddProjActive
   let changed = wasActive && not nowActive
-  when changed $ modify $ \s ->
-    let mbNewProj = s ^. onPane @AddProjPane . newProject
-    in case mbNewProj of
+  when changed $ do
+    (mbOld, mbNewProj) <- inpOp projectInputResults
+    case mbNewProj of
          Just newProj ->
-           s & onPane @FileMgrPane %~ updatePane (UpdProject newProj)
-         Nothing -> s
+           modify $ onPane @FileMgrPane %~ updatePane (UpdProject mbOld newProj)
+         Nothing -> return ()
   return (forceChange || changed)
 
 handleNewProjects :: EventM WName MyWorkState Bool
@@ -327,22 +330,27 @@ handleProjectChange innerHandler = do
             return (mustUpdate, p)
     else return (mustUpdate, p)
 
+
 handleLocationInput :: EventM WName MyWorkState (Bool, Maybe Project)
                     -> EventM WName MyWorkState (Bool, Maybe Project)
 handleLocationInput innerHandler = do
-  wasActive <- gets (view $ onPane @LocationInputPane . to isLocInputActive)
+  let inpOp :: (PaneState LocationInputPane MyWorkEvent -> a)
+            -> EventM WName MyWorkState a
+      inpOp o = gets (view $ onPane @LocationInputPane . to o)
+  wasActive <- inpOp isLocInputActive
   (forceChange, mbPrj) <- innerHandler
-  nowActive <- gets (view $ onPane @LocationInputPane . to isLocInputActive)
+  nowActive <- inpOp isLocInputActive
   let changed = wasActive && not nowActive
   let resBool = forceChange || changed
   if changed
-    then do s <- get
-            let mbNewLoc = s ^. onPane @LocationInputPane . newLocation
+    then do (mbOldL, mbNewLoc) <- inpOp locationInputResults
             case (mbNewLoc, mbPrj) of
               (Just newLoc, Just p) ->
-                let p' = updateLocation newLoc p
-                in do put $ s & onPane @FileMgrPane %~ updatePane (UpdProject p')
-                              & onPane @Location %~ updatePane (Just p')
+                let p' = updateLocation mbOldL newLoc p
+                    u = UpdProject Nothing p'
+                in do modify ( (onPane @FileMgrPane %~ updatePane u)
+                             . (onPane @Location %~ updatePane (Just p'))
+                             )
                       return (resBool, Just p')
               _ -> return (resBool, mbPrj)
     else return (resBool, mbPrj)

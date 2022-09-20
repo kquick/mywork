@@ -11,7 +11,7 @@ module Panes.AddProj
     AddProjPane
   , initAddProj
   , isAddProjActive
-  , newProject
+  , projectInputResults
   )
 where
 
@@ -121,6 +121,13 @@ isAddProjActive = isJust . nPF
 
 newProject :: Lens' (PaneState AddProjPane MyWorkEvent) (Maybe Project)
 newProject f s = (\n -> s { nPrj = n}) <$> f (nPrj s)
+
+
+-- | Returns the original project name (if any) and the new Project
+-- specification.
+projectInputResults :: PaneState AddProjPane MyWorkEvent
+                     -> (Maybe Text, Maybe Project)
+projectInputResults ps = (name <$> nOrig ps, nPrj ps)
 
 
 validateForm :: EventM WName es (PaneState AddProjPane MyWorkEvent)

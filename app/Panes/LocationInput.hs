@@ -11,8 +11,7 @@ module Panes.LocationInput
     LocationInputPane
   , initLocInput
   , isLocInputActive
-  , locProjName
-  , newLocation
+  , locationInputResults
   )
 where
 
@@ -117,12 +116,16 @@ nLFL f s = (\n -> s { nLF = n }) <$> f (nLF s)
 isLocInputActive :: PaneState LocationInputPane MyWorkEvent -> Bool
 isLocInputActive = isJust . nLF
 
--- KWQ: make this (and newProject) a getter function, not a lens?
+
 newLocation :: Lens' (PaneState LocationInputPane MyWorkEvent) (Maybe Location)
 newLocation f s = (\n -> s { nLoc = n }) <$> f (nLoc s)
 
-locProjName :: PaneState LocationInputPane MyWorkEvent -> Text
-locProjName = nProj
+
+-- | Returns the original location name (if any) and the new Location
+-- specification.
+locationInputResults :: PaneState LocationInputPane MyWorkEvent
+                     -> (Maybe Text, Maybe Location)
+locationInputResults ps = (location <$> nOrig ps, nLoc ps)
 
 
 inpToDay :: Text -> Maybe Day

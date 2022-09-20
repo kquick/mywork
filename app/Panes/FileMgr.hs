@@ -44,7 +44,7 @@ import           Defs
 data FileMgrPane
 
 data FileMgrOps = AckNewProjects
-                | UpdProject Project -- add or replace project
+                | UpdProject (Maybe Text) Project -- add or replace project
                 | DelProject Text
                 | DelLocation Text Text
 
@@ -77,7 +77,8 @@ instance Pane WName MyWorkEvent FileMgrPane FileMgrOps where
              _ -> return ts
   updatePane = \case
     AckNewProjects -> \ps -> ps { newProjects = False }
-    UpdProject prj -> (myProjectsL %~ updateProject prj) . (newProjectsL .~ True)
+    UpdProject mbOldNm prj ->
+      (myProjectsL %~ updateProject mbOldNm prj) . (newProjectsL .~ True)
     DelProject pname ->
       myProjectsL %~ Projects . filter ((/= pname) . name) . projects
     DelLocation pname locn ->
