@@ -68,15 +68,13 @@ instance Show Group where
     Work -> "Work"
     OtherGroup g -> unpack g
 
+
 ----------------------------------------------------------------------
 
-data MyWorkCore = MyWorkCore { projFile :: FilePath
-                             , myWorkFocus :: FocusRing WName
-                             }
+data MyWorkCore = MyWorkCore { myWorkFocus :: FocusRing WName }
 
 initMyWorkCore :: MyWorkCore
-initMyWorkCore = MyWorkCore { projFile = "projects.json"
-                            , myWorkFocus = focusRing [ WProjList
+initMyWorkCore = MyWorkCore { myWorkFocus = focusRing [ WProjList
                                                       , WLocation
                                                       ]
                             }
