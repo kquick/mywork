@@ -36,7 +36,7 @@ instance Pane WName MyWorkEvent Projects Projects where
         ps = editor (WName "Projs:Filter") (Just 1) ""
     in P pl ps oc
   drawPane ps gs =
-    let isFcsd = gs^.getFocus.to focused == Just (WName "Pane:ProjList")
+    let isFcsd = gs^.getFocus.to focused == Just WProjList
         renderListEnt _ (r,n) = withAttr (roleAttr r) $ txt n
         lst = renderList renderListEnt isFcsd (pL ps)
         srch = str "Search: " <+> renderEditor (txt . head) isFcsd (pS ps)
@@ -56,7 +56,7 @@ instance Pane WName MyWorkEvent Projects Projects where
                        else filter ((searchText `T.isInfixOf`) . snd) (oC ps2)
                   np = if null nc then Nothing else Just 0
               in return $ ps2 & pList %~ listReplace (V.fromList nc) np
-  focusable _ _ = Seq.singleton (WName "Pane:ProjList")
+  focusable _ _ = Seq.singleton WProjList
   updatePane newprjs =
     let oc = mkListEnt <$> projects newprjs
     in (pList %~ listReplace (V.fromList oc) (Just 0))

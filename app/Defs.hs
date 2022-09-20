@@ -76,8 +76,8 @@ data MyWorkCore = MyWorkCore { projFile :: FilePath
 
 initMyWorkCore :: MyWorkCore
 initMyWorkCore = MyWorkCore { projFile = "projects.json"
-                            , myWorkFocus = focusRing [ WName "Pane:ProjList"
-                                                      , WName "Pane:Location"
+                            , myWorkFocus = focusRing [ WProjList
+                                                      , WLocation
                                                       ]
                             }
 
@@ -85,8 +85,14 @@ coreWorkFocusL :: Lens' MyWorkCore (FocusRing WName)
 coreWorkFocusL f c = (\f' -> c { myWorkFocus = f' }) <$> f (myWorkFocus c)
 
 
-newtype WName = WName { wName :: Text }
-  deriving (Eq, Ord, Show)
+data WName = WProjList | WLocation | WName Text
+  deriving (Eq, Ord)
+
+instance Show WName where
+  show = \case
+    WProjList -> "Projects"
+    WLocation -> "Location"
+    WName n -> unpack n
 
 
 -- | Adds a border with a title to the current widget.  First argument is True if

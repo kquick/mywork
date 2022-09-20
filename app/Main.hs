@@ -174,7 +174,7 @@ handleMyWorkEvent = \case
       s <- get
       let fcsd = s ^. getFocus
       case (getCurrentLocation s, fcsd) of
-        (Just (p, _), Focused (Just (WName "Pane:ProjList"))) ->
+        (Just (p, _), Focused (Just WProjList)) ->
           put $ s
           & onPane @AddProjPane %~ initAddProj (snd $ getProjects s) (Just p)
           & focusRingUpdate myWorkFocusL

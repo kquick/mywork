@@ -101,9 +101,10 @@ instance Pane WName MyWorkEvent AddProjPane () where
            return $ s & nPFL .~ Nothing & newProject .~ (np . formState <$> pf)
          else
            let badflds = maybe "none"
-                         (foldr
-                          (\n a -> if T.null a then n else n <> ", " <> a) ""
-                          . fmap wName . invalidFields)
+                         (foldr (\n a -> if T.null a
+                                         then T.pack n
+                                         else T.pack n <> ", " <> a) ""
+                          . fmap show . invalidFields)
                          pf
                errmsg = "Correct invalid entries before accepting: "
            in return $ s { nErr = Just $ errmsg <> badflds }
