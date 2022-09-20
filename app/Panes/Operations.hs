@@ -8,9 +8,10 @@ module Panes.Operations
   )
 where
 
-import Brick
+import           Brick
 import           Brick.Panes
-import qualified Data.List as List
+import qualified Data.List as DL
+import           Data.Maybe ( catMaybes )
 
 import           Defs
 
@@ -19,18 +20,30 @@ data OperationsPane
 
 instance Pane WName MyWorkEvent OperationsPane () where
   data (PaneState OperationsPane MyWorkEvent) = Unused
-  type (DrawConstraints OperationsPane s WName) = ( HasSelection s )
+  type (DrawConstraints OperationsPane s WName) = ( HasSelection s
+                                                  , HasProjects s
+                                                  , HasLocation s
+                                                  , HasFocus s WName
+                                                  )
   initPaneState _ = Unused
   drawPane _ gs =
-    let projInd = case selectedProject gs of
+    let (o,t) = opOnSelection gs
+        projInd = case t of
                     Nothing -> withAttr a'Disabled
                     Just _ -> id
-        ops = List.intersperse (fill ' ')
-              [ str "F1: Load/Save"
-              , str "F2: Add Project"
-              , projInd $ str "F3: Add Location"
-              , projInd $ str "F4: Add Note"
-              , projInd $ str "C-e: Edit"
-              , projInd $ str "Del: Delete"
+        addWhat x = case x of
+                      ProjectOp -> "Project"
+                      LocationOp -> "Location"
+        ops = DL.intersperse (fill ' ') $ catMaybes
+              [
+                Just $ str $ "F2: Add " <> addWhat o
+              , if o == maxBound
+                then Nothing
+                else Just $ projInd $ str $ "F3: Add " <> addWhat (succ o)
+              -- , projInd $ str "F4: Add Note"
+              , Just $ projInd $ str "C-e: Edit"
+              , Just $ projInd $ str "Del: Delete"
+              , Just $ str "F9: Load/Save"
+              , Just $ str $ "C-q: Quit"
               ]
     in Just $ vLimit 1 $ str " " <+> hBox ops <+> str " "

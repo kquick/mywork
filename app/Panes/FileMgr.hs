@@ -46,6 +46,7 @@ data FileMgrPane
 data FileMgrOps = AckNewProjects
                 | UpdProject Project -- add or replace project
                 | DelProject Text
+                | DelLocation Text Text
 
 instance Pane WName MyWorkEvent FileMgrPane FileMgrOps where
   data (PaneState FileMgrPane MyWorkEvent) =
@@ -79,6 +80,12 @@ instance Pane WName MyWorkEvent FileMgrPane FileMgrOps where
     UpdProject prj -> (myProjectsL %~ updateProject prj) . (newProjectsL .~ True)
     DelProject pname ->
       myProjectsL %~ Projects . filter ((/= pname) . name) . projects
+    DelLocation pname locn ->
+      let rmvLoc p = if name p == pname
+                     then p { locations = filter (not . thisLoc) $ locations p }
+                     else p
+          thisLoc = ((== locn) . location)
+      in myProjectsL %~ Projects . fmap rmvLoc . projects
 
 
 fBrowser :: Lens' (PaneState FileMgrPane MyWorkEvent) (Maybe (FileBrowser WName))

@@ -163,70 +163,100 @@ drawMyWork mws =
 
 handleMyWorkEvent :: BrickEvent WName MyWorkEvent -> EventM WName MyWorkState ()
 handleMyWorkEvent = \case
-    AppEvent _ -> return () -- this app does not use these
+  AppEvent _ -> return () -- this app does not use these
     -- Application global actions
     --   * CTRL-q quits
     --   * CTRL-l refreshes vty
     --   * ESC dismisses any modal window
-    VtyEvent (Vty.EvKey (Vty.KChar 'q') [Vty.MCtrl]) -> halt
-    VtyEvent (Vty.EvKey (Vty.KChar 'l') [Vty.MCtrl]) ->
-      liftIO . Vty.refresh =<< getVtyHandle
-    -- Other application global events (see Pane.Operations)
-    VtyEvent (Vty.EvKey (Vty.KFun 1) []) -> do
-      s <- get
-      if s ^. onPane @FileMgrPane . to isFileMgrActive
+  VtyEvent (Vty.EvKey (Vty.KChar 'q') [Vty.MCtrl]) -> halt
+  VtyEvent (Vty.EvKey (Vty.KChar 'l') [Vty.MCtrl]) ->
+    liftIO . Vty.refresh =<< getVtyHandle
+  -- Other application global events (see Pane.Operations)
+  VtyEvent (Vty.EvKey (Vty.KFun 9) []) -> do
+    s <- get
+    if s ^. onPane @FileMgrPane . to isFileMgrActive
       then return ()
       else do
         s' <- s & onPane @FileMgrPane %%~ liftIO . showFileMgr
         put $ s' & focusRingUpdate myWorkFocusL
-    VtyEvent (Vty.EvKey (Vty.KFun 2) []) -> do
-      s <- get
-      put $ s & onPane @AddProjPane %~ initAddProj (snd $ getProjects s) Nothing
-              & focusRingUpdate myWorkFocusL
-    VtyEvent (Vty.EvKey (Vty.KFun 3) []) -> do
-      s <- get
-      case getCurrentLocation s of
-        Nothing -> return ()
-        Just (p,_) ->
-          let n = name p
-              ls = locations p
-          in put $ s
-                 & onPane @LocationInputPane %~ initLocInput n ls Nothing
-                 & focusRingUpdate myWorkFocusL
-    VtyEvent (Vty.EvKey (Vty.KChar 'e') [Vty.MCtrl]) -> do
-      s <- get
-      let fcsd = s ^. getFocus
-      case (getCurrentLocation s, fcsd) of
-        (Just (p, _), Focused (Just WProjList)) ->
-          put $ s
-          & onPane @AddProjPane %~ initAddProj (snd $ getProjects s) (Just p)
-          & focusRingUpdate myWorkFocusL
-        _ -> return ()
-      return ()
-    VtyEvent (Vty.EvKey Vty.KDel []) -> do
-      s <- get
-      let fcsd = s ^. getFocus
-      case (getCurrentLocation s, fcsd) of
-        (Just (p, _), Focused (Just WProjList)) ->
-           put $ s & onPane @ConfirmationPane %~
-                         showConfirmation (ConfirmProjectDelete (name p))
-           & focusRingUpdate myWorkFocusL
-        _ -> return ()
+  VtyEvent (Vty.EvKey (Vty.KFun 2) []) -> do
+    s <- get
+    case fst $ opOnSelection s of
+      ProjectOp ->
+        put $ s
+        & onPane @AddProjPane %~ initAddProj (snd $ getProjects s) Nothing
+        & focusRingUpdate myWorkFocusL
+      LocationOp -> addLocation s
+  VtyEvent (Vty.EvKey (Vty.KFun 3) []) -> do
+    s <- get
+    case fst $ opOnSelection s of
+      ProjectOp -> addLocation s
+      LocationOp -> error "Add Note TBD"
+  VtyEvent (Vty.EvKey (Vty.KChar 'e') [Vty.MCtrl]) -> do
+    s <- get
+    case fst $ opOnSelection s of
+      ProjectOp ->
+        case getCurrentLocation s of
+          Just (p, _) ->
+            put $ s
+            & onPane @AddProjPane %~ initAddProj (snd $ getProjects s) (Just p)
+            & focusRingUpdate myWorkFocusL
+          _ -> return ()
+      LocationOp ->
+        case getCurrentLocation s of
+          Just (p, Just l) ->
+            let n = name p
+                ls = locations p
+            in put $ s
+               & onPane @LocationInputPane %~ initLocInput n ls (Just l)
+               & focusRingUpdate myWorkFocusL
+          _ -> return ()
+  VtyEvent (Vty.EvKey Vty.KDel []) -> do
+    s <- get
+    case fst $ opOnSelection s of
+      ProjectOp ->
+        case getCurrentLocation s of
+          Just (p, _) ->
+            put $ s
+            & onPane @ConfirmationPane %~
+                       showConfirmation (ConfirmProjectDelete (name p))
+            & focusRingUpdate myWorkFocusL
+          _ -> return ()
+      LocationOp ->
+        case getCurrentLocation s of
+          Just (p, Just l) ->
+            put $ s
+            & onPane @ConfirmationPane %~
+                 showConfirmation (ConfirmLocationDelete (name p) (location l))
+            & focusRingUpdate myWorkFocusL
+          _ -> return ()
 
-    -- Otherwise, allow the Panes in the Panel to handle the event.  The wrappers
-    -- handle updates for any inter-state transitions.
-    ev -> do
-      changes <- handleLocationChange
-                 $ handleLocationInput
-                 $ handleProjectChange
-                 $ handleNewProjects
-                 $ handleNewProject
-                 $ handleConfirmation
-                 $ do s <- get
-                      s' <- handleFocusAndPanelEvents myWorkFocusL s ev
-                      put s'
-                      return False
-      when changes $ modify $ focusRingUpdate myWorkFocusL
+  -- Otherwise, allow the Panes in the Panel to handle the event.  The wrappers
+  -- handle updates for any inter-state transitions.
+  ev -> do
+    changes <- handleLocationChange
+               $ handleLocationInput
+               $ handleProjectChange
+               $ handleNewProjects
+               $ handleNewProject
+               $ handleConfirmation
+               $ do s <- get
+                    s' <- handleFocusAndPanelEvents myWorkFocusL s ev
+                    put s'
+                    return False
+    when changes $ modify $ focusRingUpdate myWorkFocusL
+
+
+addLocation :: MyWorkState -> EventM WName MyWorkState ()
+addLocation s =
+        case getCurrentLocation s of
+          Nothing -> return ()
+          Just (p,_) ->
+            let n = name p
+                ls = locations p
+            in put $ s
+               & onPane @LocationInputPane %~ initLocInput n ls Nothing
+               & focusRingUpdate myWorkFocusL
 
 
 handleConfirmation :: EventM WName MyWorkState Bool
@@ -248,6 +278,13 @@ handleConfirmation innerHandler = do
                          . (onPane @ConfirmationPane .~ ps)
                        )
                 return True
+              Just (ConfirmLocationDelete pname locn) -> do
+                modify (   (onPane @FileMgrPane %~
+                             updatePane (DelLocation pname locn))
+                         . (onPane @ConfirmationPane .~ ps)
+                       )
+                return True
+
     else return forceChange
 
 handleNewProject :: EventM WName MyWorkState Bool

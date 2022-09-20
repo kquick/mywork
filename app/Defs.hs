@@ -166,7 +166,22 @@ updateLocation l p =
   p { locations = l : filter ((/= location l) . location) (locations p) }
 
 
+data OpOn = ProjectOp | LocationOp
+  deriving (Eq, Enum, Bounded)
+
+opOnSelection :: HasSelection s
+              -- => HasProject s
+              => HasLocation s
+              => HasFocus s WName
+              => s -> (OpOn, Maybe Text)
+opOnSelection s = case s ^. getFocus of
+                    Focused (Just WProjList) -> (ProjectOp, selectedProject s)
+                    Focused (Just WLocation) -> (LocationOp, selectedLocation s)
+                    _ -> (ProjectOp, Nothing)
+
+
 data Confirm = ConfirmProjectDelete Text -- project name
+             | ConfirmLocationDelete Text Text -- project name, location
 
 -- The Show instance for Confirm is the message presented to the user in the
 -- confirmation window.
@@ -174,6 +189,8 @@ instance Show Confirm where
   show = \case
     ConfirmProjectDelete pname ->
       "Really delete project " <> show pname <> " and all associated locations and notes?"
+    ConfirmLocationDelete pname locn ->
+      "Really remove location " <> show locn <> " from project " <> show pname <> "?"
 
 
 ----------------------------------------------------------------------
