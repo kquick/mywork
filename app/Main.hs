@@ -62,7 +62,8 @@ initialState = focusRingUpdate myWorkFocusL
                $ basePanel initMyWorkCore
 
 main :: IO ()
-main = do s <- defaultMain myworkApp initialState
+main = do i <- initialState & onPane @FileMgrPane %%~ initFileMgr
+          s <- defaultMain myworkApp i
           case getCurrentLocation s of
             Just (p,mbl) ->
               do putStrLn $ T.unpack $ name p <> ": " <> description p
@@ -78,7 +79,12 @@ myworkApp :: App MyWorkState MyWorkEvent WName
 myworkApp = App { appDraw = drawMyWork
                 , appChooseCursor = showFirstCursor
                 , appHandleEvent = handleMyWorkEvent
-                , appStartEvent = return ()
+                , appStartEvent =
+                    -- Send move-up to Projects list pane.  The cursor should
+                    -- already be at the top, but this invokes the various
+                    -- wrappers that will update all the panes based on the
+                    -- Projects loaded by initFileMgr
+                    handleMyWorkEvent (VtyEvent (Vty.EvKey Vty.KUp []))
                 , appAttrMap = const myattrs
                 }
 
@@ -158,7 +164,7 @@ handleMyWorkEvent = \case
       if s ^. onPane @FileMgrPane . to isFileMgrActive
       then return ()
       else do
-        s' <- s & onPane @FileMgrPane %%~ liftIO . initFileMgr
+        s' <- s & onPane @FileMgrPane %%~ liftIO . showFileMgr
         put $ s' & focusRingUpdate myWorkFocusL
     VtyEvent (Vty.EvKey (Vty.KFun 2) []) -> do
       s <- get

@@ -14,6 +14,7 @@ module Panes.FileMgr
     FileMgrPane
   , FileMgrOps(..)
   , initFileMgr
+  , showFileMgr
   , isFileMgrActive
   )
 where
@@ -34,7 +35,7 @@ import           Data.Maybe ( isJust )
 import qualified Data.Sequence as Seq
 import qualified Graphics.Vty as Vty
 import qualified System.Directory as D
-import           System.FilePath ( (</>) )
+import           System.FilePath ( (</>), takeDirectory )
 
 import           Defs
 
@@ -158,7 +159,7 @@ handleFileLoadEvent ev ts =
                   else do newprjs <- eitherDecode <$> liftIO (BS.readFile fp)
                           case newprjs of
                             Left er -> return $ ts & errMsgL .~ er
-                            Right prjs -> return $ (ts { newProjects = True})
+                            Right prjs -> return $ (ts { newProjects = True })
                                          & fBrowser .~ Nothing
                                          & myProjectsL .~ prjs
       case ev of
@@ -215,14 +216,32 @@ instance FromJSON Location
 instance FromJSON Note
 -- deriving via Generically Note instance ToJSON Note
 
-
-initFileMgr :: PaneState FileMgrPane MyWorkEvent
-            -> IO (PaneState FileMgrPane MyWorkEvent)
-initFileMgr prev = do
+ensureDefaultProjectFile :: IO FilePath
+ensureDefaultProjectFile = do
   dataDir <- D.getXdgDirectory D.XdgData "mywork"
   D.createDirectoryIfMissing True dataDir
   let pFile = dataDir </> "projects.json"
   e <- D.doesFileExist pFile
   unless e $ BS.writeFile pFile ""
+  return pFile
+
+
+-- | Called to initialize the FileMgr at startup.  Reads the default Projects
+-- file.
+initFileMgr :: PaneState FileMgrPane MyWorkEvent
+            -> IO (PaneState FileMgrPane MyWorkEvent)
+initFileMgr ps = do
+  f <- ensureDefaultProjectFile
+  newprjs <- eitherDecode <$> liftIO (BS.readFile f)
+  case newprjs of
+    Right prjs -> return $ (ps { newProjects = True}) & myProjectsL .~ prjs
+    Left e -> error e -- return ps -- ignore bad file on startup; will show on explicit load
+
+
+-- | Called to display the FileMgr modal pane to allow the user to Load or Save.
+showFileMgr :: PaneState FileMgrPane MyWorkEvent
+            -> IO (PaneState FileMgrPane MyWorkEvent)
+showFileMgr prev = do
+  dataDir <- takeDirectory <$> ensureDefaultProjectFile
   fb <- newFileBrowser selectNonDirectories (WName "FMgr:Browser") (Just dataDir)
   return $ prev & fBrowser .~ Just fb
