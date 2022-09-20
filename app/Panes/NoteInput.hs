@@ -165,7 +165,7 @@ initNoteInput curNotes mbNote ps = do
                                      (l:_) -> textToDay l
                                      _ -> Nothing
                                    dayInit = T.pack . show
-                                   dayRender = txt . head
+                                   dayRender = txt . headText
                                in editField nnDay (WName "Note Date (Y-M-D)")
                                   (Just 1) dayInit validate dayRender id
             ]

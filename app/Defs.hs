@@ -256,6 +256,10 @@ a'Selected = attrName "selected"
 a'Error :: AttrName
 a'Error = attrName "Error"
 
+headText :: [Text] -> Text
+headText = \case
+  [] -> ""
+  (o:_) -> o
 
 ----------------------------------------------------------------------
 

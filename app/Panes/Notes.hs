@@ -37,7 +37,7 @@ instance Pane WName MyWorkEvent Note (Maybe Location) where
   drawPane ps gs =
     let isFcsd = gs^.getFocus.to focused == Just WNotes
         rndr nt = str (show (notedOn nt) <> " -- ")
-                  <+> txt (head $ T.lines $ note nt)
+                  <+> txt (headText $ T.lines $ note nt)
     in Just $ vBox [ renderList (const rndr) isFcsd (nL ps)
                      -- , hBorder
                    , vLimit 1 (fill '-'

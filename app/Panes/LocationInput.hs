@@ -164,13 +164,13 @@ initLocInput projName locs mbLoc ps =
                               else Just $ T.pack $ normalise $ T.unpack l
                     o -> Just $ T.intercalate "\n" o
               in editField nlName (WName "New Location") (Just 1)
-                 id validate (txt . head) id
+                 id validate (txt . headText) id
             , label "Date" @@= let validate = \case
                                      ("":_) -> Just Nothing
                                      (l:_) -> Just <$> textToDay l
                                      _ -> Nothing
                                    dayInit = maybe "" (T.pack . show)
-                                   dayRender = txt . head
+                                   dayRender = txt . headText
                                in editField nlDay (WName "Location Date (Y-M-D)")
                                   (Just 1) dayInit validate dayRender id
             ]
