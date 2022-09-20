@@ -18,11 +18,13 @@ import           Control.Monad ( when )
 import           Control.Monad.IO.Class ( liftIO )
 import qualified Data.List as DL
 import           Data.Maybe ( catMaybes )
+import qualified Data.Text as T
 import           Data.Version ( showVersion )
 import           Graphics.Vty ( defAttr, withStyle, defaultStyleMask
                               , bold, reverseVideo, dim, underline
                               , black, white, yellow, red, rgbColor )
 import qualified Graphics.Vty as Vty
+import           System.Directory ( setCurrentDirectory )
 
 import           Defs
 import           Panes.AddProj
@@ -60,7 +62,13 @@ initialState = focusRingUpdate myWorkFocusL
                $ basePanel initMyWorkCore
 
 main :: IO ()
-main = defaultMain myworkApp initialState >> return ()
+main = do s <- defaultMain myworkApp initialState
+          case getCurrentLocation s of
+            Just (p,l) ->
+              do putStrLn $ T.unpack $ name p <> ": " <> description p
+                 putStrLn $ T.unpack $ location l
+                 setCurrentDirectory $ T.unpack $ location l
+            Nothing -> return ()
 
 
 myworkApp :: App MyWorkState MyWorkEvent WName
