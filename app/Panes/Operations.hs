@@ -31,5 +31,6 @@ instance Pane WName MyWorkEvent OperationsPane () where
               , projInd $ str "F3: Add Location"
               , projInd $ str "F4: Add Note"
               , projInd $ str "C-e: Edit"
+              , projInd $ str "Del: Delete"
               ]
     in Just $ vLimit 1 $ str " " <+> hBox ops <+> str " "

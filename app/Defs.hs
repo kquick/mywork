@@ -151,6 +151,16 @@ updateProject :: Project -> Projects -> Projects
 updateProject p (Projects ps) = Projects $ p : filter ((/= name p) . name) ps
 
 
+data Confirm = ConfirmProjectDelete Text -- project name
+
+-- The Show instance for Confirm is the message presented to the user in the
+-- confirmation window.
+instance Show Confirm where
+  show = \case
+    ConfirmProjectDelete pname ->
+      "Really delete project " <> show pname <> " and all associated locations and notes?"
+
+
 ----------------------------------------------------------------------
 
 a'RoleAuthor, a'RoleContributor, a'RoleMaintainer, a'RoleUser :: AttrName

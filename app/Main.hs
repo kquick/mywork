@@ -13,6 +13,7 @@ import           Brick.Widgets.Border
 import           Brick.Widgets.Border.Style
 import           Brick.Widgets.Edit
 import           Brick.Widgets.List
+import           Brick.Widgets.Dialog
 import           Control.Lens
 import           Control.Monad ( when )
 import           Control.Monad.IO.Class ( liftIO )
@@ -22,12 +23,13 @@ import qualified Data.Text as T
 import           Data.Version ( showVersion )
 import           Graphics.Vty ( defAttr, withStyle, defaultStyleMask
                               , bold, reverseVideo, dim, underline
-                              , black, white, yellow, red, rgbColor )
+                              , black, white, yellow, red, green, rgbColor )
 import qualified Graphics.Vty as Vty
 import           System.Directory ( setCurrentDirectory )
 
 import           Defs
 import           Panes.AddProj
+import           Panes.Confirmation
 import           Panes.FileMgr
 import           Panes.Location ()
 import           Panes.Notes
@@ -47,6 +49,7 @@ type MyWorkState = Panel WName MyWorkEvent MyWorkCore
                     , Location
                     , Projects
                     , FileMgrPane
+                    , ConfirmationPane
                     ]
 
 initialState :: MyWorkState
@@ -59,6 +62,7 @@ initialState = focusRingUpdate myWorkFocusL
                $ addToPanel WhenFocused
                $ addToPanel WhenFocused
                $ addToPanel (WhenFocusedModal Nothing)
+               $ addToPanel (WhenFocusedModalHandlingAllEvents Nothing)
                $ basePanel initMyWorkCore
 
 main :: IO ()
@@ -101,6 +105,9 @@ myattrs = attrMap defAttr
           , (invalidFormInputAttr, fg red `withStyle` bold)
           , (focusedFormInputAttr, defAttr `withStyle` reverseVideo)
 
+          , (buttonAttr, defAttr `withStyle` dim)
+          , (buttonSelectedAttr, black `on` green `withStyle` bold)
+
           , (a'RoleAuthor, fg $ rgbColor 0 255 (0::Int))
           , (a'RoleMaintainer, fg $ rgbColor 0 200 (30::Int))
           , (a'RoleContributor, fg $ rgbColor 0 145 (80::Int))
@@ -141,6 +148,7 @@ drawMyWork mws =
         ]
       allPanes = catMaybes [ panelDraw @FileMgrPane mws
                            , panelDraw @AddProjPane mws
+                           , panelDraw @ConfirmationPane mws
                            ]
                  <> mainPanes
       disableLower = \case
@@ -159,6 +167,7 @@ handleMyWorkEvent = \case
     VtyEvent (Vty.EvKey (Vty.KChar 'q') [Vty.MCtrl]) -> halt
     VtyEvent (Vty.EvKey (Vty.KChar 'l') [Vty.MCtrl]) ->
       liftIO . Vty.refresh =<< getVtyHandle
+    -- Other application global events (see Pane.Operations)
     VtyEvent (Vty.EvKey (Vty.KFun 1) []) -> do
       s <- get
       if s ^. onPane @FileMgrPane . to isFileMgrActive
@@ -180,18 +189,51 @@ handleMyWorkEvent = \case
           & focusRingUpdate myWorkFocusL
         _ -> return ()
       return ()
-    -- Otherwise, allow the Panes in the Panel to handle the event
+    VtyEvent (Vty.EvKey Vty.KDel []) -> do
+      s <- get
+      let fcsd = s ^. getFocus
+      case (getCurrentLocation s, fcsd) of
+        (Just (p, _), Focused (Just WProjList)) ->
+           put $ s & onPane @ConfirmationPane %~
+                         showConfirmation (ConfirmProjectDelete (name p))
+           & focusRingUpdate myWorkFocusL
+        _ -> return ()
+
+    -- Otherwise, allow the Panes in the Panel to handle the event.  The wrappers
+    -- handle updates for any inter-state transitions.
     ev -> do
       changes <- handleLocationChange
                  $ handleProjectChange
                  $ handleNewProjects
                  $ handleNewProject
+                 $ handleConfirmation
                  $ do s <- get
                       s' <- handleFocusAndPanelEvents myWorkFocusL s ev
                       put s'
                       return False
       when changes $ modify $ focusRingUpdate myWorkFocusL
 
+
+handleConfirmation :: EventM WName MyWorkState Bool
+                   -> EventM WName MyWorkState Bool
+handleConfirmation innerHandler = do
+  let confirmOp :: (PaneState ConfirmationPane MyWorkEvent -> a)
+                -> EventM WName MyWorkState a
+      confirmOp o = gets (view $ onPane @ConfirmationPane . to o)
+  wasActive <- confirmOp isConfirmationActive
+  forceChange <- innerHandler
+  nowActive <- confirmOp isConfirmationActive
+  if (wasActive && not nowActive)
+    then do (ps, confirmed) <- confirmOp getConfirmedAction
+            case confirmed of
+              Nothing -> do modify $ onPane @ConfirmationPane .~ ps
+                            return forceChange
+              Just (ConfirmProjectDelete pname) -> do
+                modify (   (onPane @FileMgrPane %~ updatePane (DelProject pname))
+                         . (onPane @ConfirmationPane .~ ps)
+                       )
+                return True
+    else return forceChange
 
 handleNewProjects :: EventM WName MyWorkState Bool
                   -> EventM WName MyWorkState (Bool, Projects)

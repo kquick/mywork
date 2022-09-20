@@ -33,6 +33,7 @@ import           Data.Aeson ( ToJSON, FromJSON, eitherDecode, encode
 import qualified Data.ByteString.Lazy as BS
 import           Data.Maybe ( isJust )
 import qualified Data.Sequence as Seq
+import           Data.Text ( Text )
 import qualified Graphics.Vty as Vty
 import qualified System.Directory as D
 import           System.FilePath ( (</>), takeDirectory )
@@ -44,6 +45,7 @@ data FileMgrPane
 
 data FileMgrOps = AckNewProjects
                 | UpdProject Project -- add or replace project
+                | DelProject Text
 
 instance Pane WName MyWorkEvent FileMgrPane FileMgrOps where
   data (PaneState FileMgrPane MyWorkEvent) =
@@ -75,6 +77,8 @@ instance Pane WName MyWorkEvent FileMgrPane FileMgrOps where
   updatePane = \case
     AckNewProjects -> \ps -> ps { newProjects = False }
     UpdProject prj -> (myProjectsL %~ updateProject prj) . (newProjectsL .~ True)
+    DelProject pname ->
+      myProjectsL %~ Projects . filter ((/= pname) . name) . projects
 
 
 fBrowser :: Lens' (PaneState FileMgrPane MyWorkEvent) (Maybe (FileBrowser WName))
