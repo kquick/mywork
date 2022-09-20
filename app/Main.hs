@@ -64,10 +64,13 @@ initialState = focusRingUpdate myWorkFocusL
 main :: IO ()
 main = do s <- defaultMain myworkApp initialState
           case getCurrentLocation s of
-            Just (p,l) ->
+            Just (p,mbl) ->
               do putStrLn $ T.unpack $ name p <> ": " <> description p
-                 putStrLn $ T.unpack $ location l
-                 setCurrentDirectory $ T.unpack $ location l
+                 case mbl of
+                   Nothing -> return ()
+                   Just l -> do
+                     putStrLn $ T.unpack $ location l
+                     setCurrentDirectory $ T.unpack $ location l
             Nothing -> return ()
 
 

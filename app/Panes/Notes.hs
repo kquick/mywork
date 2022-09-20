@@ -15,6 +15,7 @@ import           Brick hiding ( Location )
 import           Brick.Panes
 import           Brick.Widgets.List
 import           Control.Lens
+import Control.Monad ( join )
 import qualified Data.Text as T
 import qualified Data.Vector as V
 
@@ -34,7 +35,7 @@ instance Pane WName MyWorkEvent NotesPane (Maybe Location) where
                                              )
   initPaneState gs =
     let l = N (list (WName "Notes:List") mempty 1)
-    in flip updatePane l $ snd <$> getCurrentLocation gs
+    in flip updatePane l $ join $ snd <$> getCurrentLocation gs
   updatePane mbl ps =
     case mbl of
       Just l ->
