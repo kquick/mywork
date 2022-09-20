@@ -32,6 +32,7 @@ import           Panes.AddProj
 import           Panes.Confirmation
 import           Panes.FileMgr
 import           Panes.Location ()
+import           Panes.LocationInput
 import           Panes.Notes
 import           Panes.Operations
 import           Panes.ProjInfo
@@ -42,6 +43,7 @@ import           Paths_mywork ( version )
 
 type MyWorkState = Panel WName MyWorkEvent MyWorkCore
                    '[ SummaryPane
+                    , LocationInputPane
                     , AddProjPane
                     , OperationsPane
                     , ProjInfoPane
@@ -55,6 +57,7 @@ type MyWorkState = Panel WName MyWorkEvent MyWorkCore
 initialState :: MyWorkState
 initialState = focusRingUpdate myWorkFocusL
                $ addToPanel Never
+               $ addToPanel (WhenFocusedModalHandlingAllEvents Nothing)
                $ addToPanel (WhenFocusedModalHandlingAllEvents Nothing)
                $ addToPanel Never
                $ addToPanel Never
@@ -148,6 +151,7 @@ drawMyWork mws =
         ]
       allPanes = catMaybes [ panelDraw @FileMgrPane mws
                            , panelDraw @AddProjPane mws
+                           , panelDraw @LocationInputPane mws
                            , panelDraw @ConfirmationPane mws
                            ]
                  <> mainPanes
@@ -179,6 +183,16 @@ handleMyWorkEvent = \case
       s <- get
       put $ s & onPane @AddProjPane %~ initAddProj (snd $ getProjects s) Nothing
               & focusRingUpdate myWorkFocusL
+    VtyEvent (Vty.EvKey (Vty.KFun 3) []) -> do
+      s <- get
+      case getCurrentLocation s of
+        Nothing -> return ()
+        Just (p,_) ->
+          let n = name p
+              ls = locations p
+          in put $ s
+                 & onPane @LocationInputPane %~ initLocInput n ls Nothing
+                 & focusRingUpdate myWorkFocusL
     VtyEvent (Vty.EvKey (Vty.KChar 'e') [Vty.MCtrl]) -> do
       s <- get
       let fcsd = s ^. getFocus
@@ -203,6 +217,7 @@ handleMyWorkEvent = \case
     -- handle updates for any inter-state transitions.
     ev -> do
       changes <- handleLocationChange
+                 $ handleLocationInput
                  $ handleProjectChange
                  $ handleNewProjects
                  $ handleNewProject
@@ -235,18 +250,6 @@ handleConfirmation innerHandler = do
                 return True
     else return forceChange
 
-handleNewProjects :: EventM WName MyWorkState Bool
-                  -> EventM WName MyWorkState (Bool, Projects)
-handleNewProjects innerHandler = do
-  forceChange <- innerHandler
-  (new,prjs) <- gets getProjects
-  let mustUpdate = forceChange || new
-  when mustUpdate $
-    modify (   (onPane @Projects %~ updatePane prjs)
-             . (onPane @FileMgrPane %~ updatePane AckNewProjects)
-           )
-  return (mustUpdate, prjs)
-
 handleNewProject :: EventM WName MyWorkState Bool
                  -> EventM WName MyWorkState Bool
 handleNewProject innerHandler = do
@@ -262,6 +265,18 @@ handleNewProject innerHandler = do
          Nothing -> s
   return (forceChange || changed)
 
+handleNewProjects :: EventM WName MyWorkState Bool
+                  -> EventM WName MyWorkState (Bool, Projects)
+handleNewProjects innerHandler = do
+  forceChange <- innerHandler
+  (new,prjs) <- gets getProjects
+  let mustUpdate = forceChange || new
+  when mustUpdate $
+    modify (   (onPane @Projects %~ updatePane prjs)
+             . (onPane @FileMgrPane %~ updatePane AckNewProjects)
+           )
+  return (mustUpdate, prjs)
+
 handleProjectChange :: EventM WName MyWorkState (Bool, Projects)
                     -> EventM WName MyWorkState (Bool, Maybe Project)
 handleProjectChange innerHandler = do
@@ -269,11 +284,32 @@ handleProjectChange innerHandler = do
   (forceChange, prjs) <- innerHandler
   pnm <- gets selectedProject
   let mustUpdate = forceChange || pnm /= pnm0
+  let p = DL.find ((== pnm) . Just . name) (projects prjs)
   if mustUpdate
-    then let p = DL.find ((== pnm) . Just . name) (projects prjs)
-         in do modify $ onPane @Location %~ updatePane p
-               return (mustUpdate, p)
-    else return (mustUpdate, Nothing)
+    then do modify $ onPane @Location %~ updatePane p
+            return (mustUpdate, p)
+    else return (mustUpdate, p)
+
+handleLocationInput :: EventM WName MyWorkState (Bool, Maybe Project)
+                    -> EventM WName MyWorkState (Bool, Maybe Project)
+handleLocationInput innerHandler = do
+  wasActive <- gets (view $ onPane @LocationInputPane . to isLocInputActive)
+  (forceChange, mbPrj) <- innerHandler
+  nowActive <- gets (view $ onPane @LocationInputPane . to isLocInputActive)
+  let changed = wasActive && not nowActive
+  let resBool = forceChange || changed
+  if changed
+    then do s <- get
+            let mbNewLoc = s ^. onPane @LocationInputPane . newLocation
+            case (mbNewLoc, mbPrj) of
+              (Just newLoc, Just p) ->
+                let p' = updateLocation newLoc p
+                in do put $ s & onPane @FileMgrPane %~ updatePane (UpdProject p')
+                              & onPane @Location %~ updatePane (Just p')
+                      return (resBool, Just p')
+              _ -> return (resBool, mbPrj)
+    else return (resBool, mbPrj)
+
 
 handleLocationChange :: EventM WName MyWorkState (Bool, Maybe Project)
                      -> EventM WName MyWorkState Bool

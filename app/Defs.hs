@@ -18,6 +18,7 @@ import           Brick.Widgets.Border
 import           Control.Lens
 import qualified Data.List as DL
 import           Data.Text ( Text, pack, unpack )
+import qualified Data.Text as T
 import           Data.Time.Calendar
 import           GHC.Generics ( Generic )
 
@@ -147,8 +148,22 @@ getCurrentLocation s = do p <- selectedProject s
                                       DL.find ((== l) . location) (locations prj))
 
 
+isLocationLocal :: Location -> Bool
+isLocationLocal = isLocationLocal' . location
+
+isLocationLocal' :: Text -> Bool
+isLocationLocal' l = not $ or [ "http://" `T.isPrefixOf` l
+                              , "https://" `T.isPrefixOf` l
+                              , "git@" `T.isPrefixOf` l
+                              ]
+
 updateProject :: Project -> Projects -> Projects
 updateProject p (Projects ps) = Projects $ p : filter ((/= name p) . name) ps
+
+
+updateLocation :: Location -> Project -> Project
+updateLocation l p =
+  p { locations = l : filter ((/= location l) . location) (locations p) }
 
 
 data Confirm = ConfirmProjectDelete Text -- project name

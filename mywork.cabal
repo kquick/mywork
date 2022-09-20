@@ -35,6 +35,7 @@ executable mywork
                       Panes.Confirmation
                       Panes.FileMgr
                       Panes.Location
+                      Panes.LocationInput
                       Panes.Operations
                       Panes.Projects
                       Panes.ProjInfo
