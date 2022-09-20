@@ -55,7 +55,6 @@ instance Pane WName MyWorkEvent FileMgrPane FileMgrOps where
          -- ^ True when myProjects has been updated; clear this via updatePane
        , errMsg :: String
        }
-  type (InitConstraints FileMgrPane s) = ()
   type (DrawConstraints FileMgrPane s WName) = ( HasFocus s WName )
   type (EventConstraints FileMgrPane e) = ( HasFocus e WName )
   initPaneState _ = FB Nothing (Projects mempty) False ""
