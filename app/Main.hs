@@ -162,8 +162,18 @@ handleMyWorkEvent = \case
         put $ s' & focusRingUpdate myWorkFocusL
     VtyEvent (Vty.EvKey (Vty.KFun 2) []) -> do
       s <- get
-      put $ s & onPane @AddProjPane %~ initAddProj (snd $ getProjects s)
+      put $ s & onPane @AddProjPane %~ initAddProj (snd $ getProjects s) Nothing
               & focusRingUpdate myWorkFocusL
+    VtyEvent (Vty.EvKey (Vty.KChar 'e') [Vty.MCtrl]) -> do
+      s <- get
+      let fcsd = s ^. getFocus
+      case (getCurrentLocation s, fcsd) of
+        (Just (p, _), Focused (Just (WName "Pane:ProjList"))) ->
+          put $ s
+          & onPane @AddProjPane %~ initAddProj (snd $ getProjects s) (Just p)
+          & focusRingUpdate myWorkFocusL
+        _ -> return ()
+      return ()
     -- Otherwise, allow the Panes in the Panel to handle the event
     ev -> do
       changes <- handleLocationChange
@@ -200,7 +210,7 @@ handleNewProject innerHandler = do
     let mbNewProj = s ^. onPane @AddProjPane . newProject
     in case mbNewProj of
          Just newProj ->
-           s & onPane @FileMgrPane %~ updatePane (AddProject newProj)
+           s & onPane @FileMgrPane %~ updatePane (UpdProject newProj)
          Nothing -> s
   return (forceChange || changed)
 

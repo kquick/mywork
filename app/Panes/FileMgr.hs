@@ -42,7 +42,7 @@ import           Defs
 data FileMgrPane
 
 data FileMgrOps = AckNewProjects
-                | AddProject Project
+                | UpdProject Project -- add or replace project
 
 instance Pane WName MyWorkEvent FileMgrPane FileMgrOps where
   data (PaneState FileMgrPane MyWorkEvent) =
@@ -74,7 +74,7 @@ instance Pane WName MyWorkEvent FileMgrPane FileMgrOps where
              _ -> return ts
   updatePane = \case
     AckNewProjects -> \ps -> ps { newProjects = False }
-    AddProject prj -> (myProjectsL <>~ Projects [prj]) . (newProjectsL .~ True)
+    UpdProject prj -> (myProjectsL %~ updateProject prj) . (newProjectsL .~ True)
 
 
 fBrowser :: Lens' (PaneState FileMgrPane MyWorkEvent) (Maybe (FileBrowser WName))

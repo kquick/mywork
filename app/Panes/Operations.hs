@@ -26,9 +26,10 @@ instance Pane WName MyWorkEvent OperationsPane () where
                     Nothing -> withAttr a'Disabled
                     Just _ -> id
         ops = List.intersperse (fill ' ')
-              [ str "F1-Load/Save"
-              , str "F2-Add Project"
-              , projInd $ str "F3-Add Location"
-              , projInd $ str "F4-Add Note"
+              [ str "F1: Load/Save"
+              , str "F2: Add Project"
+              , projInd $ str "F3: Add Location"
+              , projInd $ str "F4: Add Note"
+              , projInd $ str "C-e: Edit"
               ]
     in Just $ vLimit 1 $ str " " <+> hBox ops <+> str " "

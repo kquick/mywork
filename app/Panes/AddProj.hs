@@ -59,13 +59,15 @@ instance Pane WName MyWorkEvent AddProjPane () where
                                                 , nPrj :: Maybe Project
                                                   -- reset to Nothing when nPF
                                                   -- transitions Nothing -> Just
+                                                , nOrig :: Maybe Project
                                                 , nErr :: Maybe Text
                                                 }
   type (EventType AddProjPane WName MyWorkEvent) = BrickEvent WName MyWorkEvent
-  initPaneState _ = NP Nothing Nothing Nothing
+  initPaneState _ = NP Nothing Nothing Nothing Nothing
   drawPane ps _gs =
     C.centerLayer
-    . borderWithLabel (str "New Project")
+    . borderWithLabel (str $ (maybe "New" (const "Edit") $ nOrig ps)
+                             <> " Project")
     . vLimit 25
     . hLimitPercent 65
     . (\f -> vBox [ renderForm f
@@ -140,9 +142,10 @@ validateForm inner = do
 
 
 initAddProj :: Projects
+            -> Maybe Project
             -> PaneState AddProjPane MyWorkEvent
             -> PaneState AddProjPane MyWorkEvent
-initAddProj prjs ps =
+initAddProj prjs mbProj ps =
   case nPF ps of
     Just _ -> ps
     Nothing ->
@@ -157,9 +160,12 @@ initAddProj prjs ps =
           npForm =
             newForm
             [ label "Project name" @@=
-              let validate nm = if head nm `elem` (name <$> projects prjs)
-                                then Nothing  -- invalid
-                                else Just $ head nm
+              let validate = \case
+                    (nm:_) -> if nm `elem` (name <$> projects prjs) &&
+                                 (maybe True ((nm /=) . name) mbProj)
+                              then Nothing  -- invalid
+                              else Just nm
+                    o -> Just $ T.intercalate "\n" o
               in editField npName (WName "New Project Name") (Just 1)
                  id validate (txt . head) id
             , label' "Group" @@=
@@ -190,5 +196,26 @@ initAddProj prjs ps =
             , label "Description" @@=
               editTextField npDesc (WName "+Prj:Desc") Nothing
             ]
-            blankNewProj
-      in NP { nPF = Just npForm, nPrj = Nothing, nErr = Nothing }
+            (case mbProj of
+               Nothing -> blankNewProj
+               Just p -> NewProj { _npName = name p
+                                 , _npRole = role p
+                                 , _npGroupG = case group p of
+                                                 Personal -> Just Personal
+                                                 Work -> Just Work
+                                                 OtherGroup _ -> Nothing
+                                 , _npGroupT = case group p of
+                                                 OtherGroup t -> t
+                                                 _ -> ""
+                                 , _npLangR = language p
+                                 , _npLangT = case language p of
+                                                Right _ -> ""
+                                                Left t -> t
+                                 , _npDesc = description p
+                                 }
+            )
+      in NP { nPF = Just npForm
+            , nPrj = Nothing
+            , nOrig = mbProj
+            , nErr = Nothing
+            }

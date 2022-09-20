@@ -143,6 +143,10 @@ getCurrentLocation s = do p <- selectedProject s
                                       DL.find ((== l) . location) (locations prj))
 
 
+updateProject :: Project -> Projects -> Projects
+updateProject p (Projects ps) = Projects $ p : filter ((/= name p) . name) ps
+
+
 ----------------------------------------------------------------------
 
 a'RoleAuthor, a'RoleContributor, a'RoleMaintainer, a'RoleUser :: AttrName
