@@ -21,21 +21,16 @@ import           Brick.Forms
 import           Brick.Panes
 import           Brick.Widgets.Border
 import qualified Brick.Widgets.Center as C
-import           Control.Applicative ( (<|>) )
-import           Control.Lens hiding ( under )
-import           Control.Monad ( guard )
+import           Control.Lens
 import           Control.Monad.IO.Class ( liftIO )
-import qualified Data.List as DL
 import           Data.Maybe ( isJust )
 import qualified Data.Sequence as Seq
 import           Data.Text ( Text )
 import qualified Data.Text as T
 import           Data.Time.Calendar ( Day )
-import           Data.Time.Calendar ( fromGregorianValid )
 import qualified Graphics.Vty as Vty
 import           System.Directory ( doesDirectoryExist )
 import           System.FilePath ( isValid, isRelative, normalise )
-import           Text.Read
 
 import           Defs
 
@@ -128,32 +123,6 @@ locationInputResults :: PaneState LocationInputPane MyWorkEvent
 locationInputResults ps = (location <$> nOrig ps, nLoc ps)
 
 
-inpToDay :: Text -> Maybe Day
-inpToDay t = let t' = T.split (`T.elem` "-/") t
-             in case t' of
-                  [y,m,d] ->
-                    let validYear x = if x < (1800 :: Integer)
-                                      then x + 2000
-                                      else x
-                        validMonth x = not (x < 1 || x > (12 :: Int))
-                        validDayOfMonth x = not (x < 1 || x > (31 :: Int))
-                        months = [ "january", "february", "march", "april"
-                                 , "may", "june", "july", "august"
-                                 , "september", "october", "november", "december"
-                                 ]
-                        ml = T.toLower m
-                        matchesMonth x = or [ ml == x, ml == T.take 3 x]
-                    in do y' <- validYear <$> readMaybe (T.unpack y)
-                          m' <- readMaybe (T.unpack m)
-                                <|> (snd <$> (DL.find (matchesMonth . fst)
-                                              $ zip months [1..]))
-                          guard (validMonth m')
-                          d' <- readMaybe (T.unpack d)
-                          guard (validDayOfMonth d')
-                          fromGregorianValid y' m' d'
-                  _ -> Nothing
-
-
 validateForm :: EventM WName es (PaneState LocationInputPane MyWorkEvent)
              -> EventM WName es (PaneState LocationInputPane MyWorkEvent)
 validateForm inner = do
@@ -198,7 +167,7 @@ initLocInput projName locs mbLoc ps =
                  id validate (txt . head) id
             , label "Date" @@= let validate = \case
                                      ("":_) -> Just Nothing
-                                     (l:_) -> Just <$> inpToDay l
+                                     (l:_) -> Just <$> textToDay l
                                      _ -> Nothing
                                    dayInit = maybe "" (T.pack . show)
                                    dayRender = txt . head

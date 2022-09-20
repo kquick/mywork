@@ -33,7 +33,8 @@ import           Panes.Confirmation
 import           Panes.FileMgr
 import           Panes.Location ()
 import           Panes.LocationInput
-import           Panes.Notes
+import           Panes.NoteInput
+import           Panes.Notes ()
 import           Panes.Operations
 import           Panes.ProjInfo
 import           Panes.Projects ()
@@ -43,11 +44,12 @@ import           Paths_mywork ( version )
 
 type MyWorkState = Panel WName MyWorkEvent MyWorkCore
                    '[ SummaryPane
+                    , NoteInputPane
                     , LocationInputPane
                     , AddProjPane
                     , OperationsPane
                     , ProjInfoPane
-                    , NotesPane
+                    , Note
                     , Location
                     , Projects
                     , FileMgrPane
@@ -57,6 +59,7 @@ type MyWorkState = Panel WName MyWorkEvent MyWorkCore
 initialState :: MyWorkState
 initialState = focusRingUpdate myWorkFocusL
                $ addToPanel Never
+               $ addToPanel (WhenFocusedModalHandlingAllEvents Nothing)
                $ addToPanel (WhenFocusedModalHandlingAllEvents Nothing)
                $ addToPanel (WhenFocusedModalHandlingAllEvents Nothing)
                $ addToPanel Never
@@ -142,7 +145,7 @@ drawMyWork mws =
                  , const (hBorderWithLabel (str "Locations")) <$> pinfo
                  , panelDraw @Location mws
                  , const (hBorderWithLabel (str "Notes")) <$> pinfo
-                 , pinfo >> panelDraw @NotesPane mws
+                 , pinfo >> panelDraw @Note mws
                  ]
             ]
           , Just hBorder
@@ -152,6 +155,7 @@ drawMyWork mws =
       allPanes = catMaybes [ panelDraw @FileMgrPane mws
                            , panelDraw @AddProjPane mws
                            , panelDraw @LocationInputPane mws
+                           , panelDraw @NoteInputPane mws
                            , panelDraw @ConfirmationPane mws
                            ]
                  <> mainPanes
@@ -179,6 +183,8 @@ handleMyWorkEvent = \case
       else do
         s' <- s & onPane @FileMgrPane %%~ liftIO . showFileMgr
         put $ s' & focusRingUpdate myWorkFocusL
+
+  -- Add an entry to the currently selected pane
   VtyEvent (Vty.EvKey (Vty.KFun 2) []) -> do
     s <- get
     case fst $ opOnSelection s of
@@ -187,11 +193,17 @@ handleMyWorkEvent = \case
         & onPane @AddProjPane %~ initAddProj (snd $ getProjects s) Nothing
         & focusRingUpdate myWorkFocusL
       LocationOp -> addLocation s
+      NoteOp -> addNote s
+
+  -- Add a sub-entry to the currently selected pane entry
   VtyEvent (Vty.EvKey (Vty.KFun 3) []) -> do
     s <- get
     case fst $ opOnSelection s of
       ProjectOp -> addLocation s
-      LocationOp -> error "Add Note TBD"
+      LocationOp -> addNote s
+      NoteOp -> addNote s  -- Note: F3 is not displayed, but no lower entry
+
+  -- Edit the current selected entry in whichever pane is active
   VtyEvent (Vty.EvKey (Vty.KChar 'e') [Vty.MCtrl]) -> do
     s <- get
     case fst $ opOnSelection s of
@@ -211,6 +223,15 @@ handleMyWorkEvent = \case
                & onPane @LocationInputPane %~ initLocInput n ls (Just l)
                & focusRingUpdate myWorkFocusL
           _ -> return ()
+      NoteOp ->
+        case getCurrentLocation s of
+          Just (_, Just l) ->
+            let nt = getCurrentNote s l
+            in do s' <- s & onPane @NoteInputPane %%~ initNoteInput (notes l) nt
+                  put $ s' & focusRingUpdate myWorkFocusL
+          _ -> return ()
+
+  -- Delete the current selected entry in whichever pane is active
   VtyEvent (Vty.EvKey Vty.KDel []) -> do
     s <- get
     case fst $ opOnSelection s of
@@ -230,11 +251,22 @@ handleMyWorkEvent = \case
                  showConfirmation (ConfirmLocationDelete (name p) (location l))
             & focusRingUpdate myWorkFocusL
           _ -> return ()
+      NoteOp ->
+        case getCurrentLocation s of
+          Just (p, Just l) ->
+            case getCurrentNote s l of
+              Just nt ->
+                let msg = ConfirmNoteDelete (name p) (location l) (noteTitle nt)
+                in put $ s & onPane @ConfirmationPane %~ showConfirmation msg
+                           & focusRingUpdate myWorkFocusL
+              _ -> return ()
+          _ -> return ()
 
   -- Otherwise, allow the Panes in the Panel to handle the event.  The wrappers
   -- handle updates for any inter-state transitions.
   ev -> do
-    changes <- handleLocationChange
+    changes <- handleNoteInput
+               $ handleLocationChange
                $ handleLocationInput
                $ handleProjectChange
                $ handleNewProjects
@@ -249,14 +281,23 @@ handleMyWorkEvent = \case
 
 addLocation :: MyWorkState -> EventM WName MyWorkState ()
 addLocation s =
-        case getCurrentLocation s of
-          Nothing -> return ()
-          Just (p,_) ->
-            let n = name p
-                ls = locations p
-            in put $ s
-               & onPane @LocationInputPane %~ initLocInput n ls Nothing
-               & focusRingUpdate myWorkFocusL
+  case getCurrentLocation s of
+    Just (p,_) ->
+      let n = name p
+          ls = locations p
+      in put $ s
+         & onPane @LocationInputPane %~ initLocInput n ls Nothing
+         & focusRingUpdate myWorkFocusL
+    _ -> return ()
+
+
+addNote :: MyWorkState -> EventM WName MyWorkState ()
+addNote s =
+  case getCurrentLocation s of
+    Just (_, Just l) -> do
+      s' <- s & onPane @NoteInputPane %%~ initNoteInput (notes l) Nothing
+      put $ s' & focusRingUpdate myWorkFocusL
+    _ -> return ()
 
 
 handleConfirmation :: EventM WName MyWorkState Bool
@@ -270,21 +311,18 @@ handleConfirmation innerHandler = do
   nowActive <- confirmOp isConfirmationActive
   if (wasActive && not nowActive)
     then do (ps, confirmed) <- confirmOp getConfirmedAction
+            modify $ onPane @ConfirmationPane .~ ps
             case confirmed of
-              Nothing -> do modify $ onPane @ConfirmationPane .~ ps
-                            return forceChange
+              Nothing -> return forceChange
               Just (ConfirmProjectDelete pname) -> do
-                modify (   (onPane @FileMgrPane %~ updatePane (DelProject pname))
-                         . (onPane @ConfirmationPane .~ ps)
-                       )
+                modify (onPane @FileMgrPane %~ updatePane (DelProject pname))
                 return True
               Just (ConfirmLocationDelete pname locn) -> do
-                modify (   (onPane @FileMgrPane %~
-                             updatePane (DelLocation pname locn))
-                         . (onPane @ConfirmationPane .~ ps)
-                       )
+                modify (onPane @FileMgrPane %~ updatePane (DelLocation pname locn))
                 return True
-
+              Just (ConfirmNoteDelete pname locn nt) -> do
+                modify (onPane @FileMgrPane %~ updatePane (DelNote pname locn nt))
+                return True
     else return forceChange
 
 handleNewProject :: EventM WName MyWorkState Bool
@@ -357,20 +395,44 @@ handleLocationInput innerHandler = do
 
 
 handleLocationChange :: EventM WName MyWorkState (Bool, Maybe Project)
-                     -> EventM WName MyWorkState Bool
+                     -> EventM WName MyWorkState (Bool, Maybe Project, Maybe Location)
 handleLocationChange innerHandler = do
   loc0 <- gets selectedLocation
   (forceChange, mbPrj) <- innerHandler
   loc1 <- gets selectedLocation
   let mustUpdate = forceChange || loc1 /= loc0
   case mbPrj of
-    Nothing -> return ()
-    Just p ->
-      when mustUpdate $
-        case DL.find ((== loc1) . Just . location) (locations p) of
-          Just l -> modify $ onPane @NotesPane %~ updatePane (Just l)
-          Nothing -> modify $ onPane @NotesPane %~ updatePane Nothing
-  return mustUpdate
+    Nothing -> return (mustUpdate, Nothing, Nothing)
+    Just p -> do
+      let mbl = DL.find ((== loc1) . Just . location) (locations p)
+      when mustUpdate $ do
+        case mbl of
+          Just l -> modify $ onPane @Note %~ updatePane (Just l)
+          Nothing -> modify $ onPane @Note %~ updatePane Nothing
+      return (mustUpdate, mbPrj, mbl)
+
+handleNoteInput :: EventM WName MyWorkState (Bool, Maybe Project, Maybe Location)
+                -> EventM WName MyWorkState Bool
+handleNoteInput innerHandler = do
+  let inpOp :: (PaneState NoteInputPane MyWorkEvent -> a)
+            -> EventM WName MyWorkState a
+      inpOp o = gets (view $ onPane @NoteInputPane . to o)
+  wasActive <- inpOp isNoteInputActive
+  (forceChange, mbPrj, mbLoc) <- innerHandler
+  nowActive <- inpOp isNoteInputActive
+  let changed = wasActive && not nowActive
+  let resBool = forceChange || changed
+  when changed $
+    do (mbOldN, mbNewNote) <- inpOp noteInputResults
+       case (mbNewNote, mbPrj, mbLoc) of
+         (Just newNote, Just p, Just l) ->
+           let (p',l') = updateNote mbOldN newNote l p
+               u = UpdProject Nothing p'
+           in do modify ( (onPane @FileMgrPane %~ updatePane u)
+                          . (onPane @Note %~ updatePane (Just l'))
+                        )
+         _ -> do return ()
+  return resBool
 
 
 myWorkFocusL :: Lens' MyWorkState (FocusRing WName)

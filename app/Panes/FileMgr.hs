@@ -47,6 +47,7 @@ data FileMgrOps = AckNewProjects
                 | UpdProject (Maybe Text) Project -- add or replace project
                 | DelProject Text
                 | DelLocation Text Text
+                | DelNote Text Text Text
 
 instance Pane WName MyWorkEvent FileMgrPane FileMgrOps where
   data (PaneState FileMgrPane MyWorkEvent) =
@@ -87,6 +88,15 @@ instance Pane WName MyWorkEvent FileMgrPane FileMgrOps where
                      else p
           thisLoc = ((== locn) . location)
       in myProjectsL %~ Projects . fmap rmvLoc . projects
+    DelNote pname locn nt ->
+      let rmvNote p = if name p == pname
+                      then p { locations = rmvNote' <$> locations p }
+                      else p
+          rmvNote' l = if location l == locn
+                       then l { notes = filter (not . thisNote) $ notes l }
+                       else l
+          thisNote = ((== nt) . noteTitle)
+      in myProjectsL %~ Projects . fmap rmvNote . projects
 
 
 fBrowser :: Lens' (PaneState FileMgrPane MyWorkEvent) (Maybe (FileBrowser WName))

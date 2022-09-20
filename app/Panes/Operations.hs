@@ -34,6 +34,7 @@ instance Pane WName MyWorkEvent OperationsPane () where
         addWhat x = case x of
                       ProjectOp -> "Project"
                       LocationOp -> "Location"
+                      NoteOp -> "Note"
         ops = DL.intersperse (fill ' ') $ catMaybes
               [
                 Just $ str $ "F2: Add " <> addWhat o

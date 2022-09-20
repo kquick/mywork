@@ -39,6 +39,7 @@ executable mywork
                       Panes.Operations
                       Panes.Projects
                       Panes.ProjInfo
+                      Panes.NoteInput
                       Panes.Notes
                       Panes.Summary
     hs-source-dirs:   app

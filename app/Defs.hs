@@ -15,12 +15,15 @@ import           Brick hiding (Location)
 import           Brick.Focus
 import           Brick.Panes
 import           Brick.Widgets.Border
+import           Control.Applicative ( (<|>) )
 import           Control.Lens
+import           Control.Monad ( guard )
 import qualified Data.List as DL
 import           Data.Text ( Text, pack, unpack )
 import qualified Data.Text as T
 import           Data.Time.Calendar
 import           GHC.Generics ( Generic )
+import           Text.Read ( readMaybe )
 
 
 newtype Projects = Projects { projects :: [Project] }
@@ -69,6 +72,11 @@ instance Show Group where
     Work -> "Work"
     OtherGroup g -> unpack g
 
+noteTitle :: Note -> Text
+noteTitle n = case T.lines $ note n of
+                [] -> ""
+                (t:_) -> t
+
 
 ----------------------------------------------------------------------
 
@@ -84,13 +92,14 @@ coreWorkFocusL :: Lens' MyWorkCore (FocusRing WName)
 coreWorkFocusL f c = (\f' -> c { myWorkFocus = f' }) <$> f (myWorkFocus c)
 
 
-data WName = WProjList | WLocation | WName Text
+data WName = WProjList | WLocation | WNotes | WName Text
   deriving (Eq, Ord)
 
 instance Show WName where
   show = \case
     WProjList -> "Projects"
     WLocation -> "Location"
+    WNotes -> "Notes"
     WName n -> unpack n
 
 
@@ -135,6 +144,15 @@ instance ( PanelOps Location WName MyWorkEvent panes MyWorkCore
   => HasLocation (Panel WName MyWorkEvent MyWorkCore panes) where
   selectedLocation = selectedLocation . view (onPane @Location)
 
+class HasNote s where
+  selectedNote :: s -> Maybe Text
+
+instance ( PanelOps Note WName MyWorkEvent panes MyWorkCore
+         , HasNote (PaneState Note MyWorkEvent)
+         )
+  => HasNote (Panel WName MyWorkEvent MyWorkCore panes) where
+  selectedNote = selectedNote . view (onPane @Note)
+
 
 getCurrentLocation :: HasSelection s
                    => HasLocation s
@@ -147,6 +165,10 @@ getCurrentLocation s = do p <- selectedProject s
                                  , do l <- selectedLocation s
                                       DL.find ((== l) . location) (locations prj))
 
+
+getCurrentNote :: HasNote s => s -> Location -> Maybe Note
+getCurrentNote s l = do n <- selectedNote s
+                        DL.find ((== n) . noteTitle) (notes l)
 
 isLocationLocal :: Location -> Bool
 isLocationLocal = isLocationLocal' . location
@@ -169,22 +191,30 @@ updateLocation ol l p =
   in p { locations = l : filter ((/= oldName) . location) (locations p) }
 
 
-data OpOn = ProjectOp | LocationOp
+updateNote :: Maybe Text -> Note -> Location -> Project -> (Project, Location)
+updateNote oldn n l p =
+  let oldName = maybe (noteTitle n) id oldn
+      newL = l { notes = n : filter ((/= oldName) . noteTitle) (notes l) }
+  in (updateLocation Nothing newL p, newL)
+
+
+data OpOn = ProjectOp | LocationOp | NoteOp
   deriving (Eq, Enum, Bounded)
 
 opOnSelection :: HasSelection s
-              -- => HasProject s
               => HasLocation s
               => HasFocus s WName
               => s -> (OpOn, Maybe Text)
 opOnSelection s = case s ^. getFocus of
                     Focused (Just WProjList) -> (ProjectOp, selectedProject s)
                     Focused (Just WLocation) -> (LocationOp, selectedLocation s)
+                    Focused (Just WNotes) -> (NoteOp, Nothing) -- TODO: selectedNote
                     _ -> (ProjectOp, Nothing)
 
 
 data Confirm = ConfirmProjectDelete Text -- project name
              | ConfirmLocationDelete Text Text -- project name, location
+             | ConfirmNoteDelete Text Text Text -- project name, location, noteTitle
 
 -- The Show instance for Confirm is the message presented to the user in the
 -- confirmation window.
@@ -194,6 +224,8 @@ instance Show Confirm where
       "Really delete project " <> show pname <> " and all associated locations and notes?"
     ConfirmLocationDelete pname locn ->
       "Really remove location " <> show locn <> " from project " <> show pname <> "?"
+    ConfirmNoteDelete pname locn nt ->
+      "Remove the following note from project " <> show pname <> ", location " <> show locn <> "?\n\n  " <> show nt
 
 
 ----------------------------------------------------------------------
@@ -223,3 +255,28 @@ a'Selected = attrName "selected"
 
 a'Error :: AttrName
 a'Error = attrName "Error"
+
+
+----------------------------------------------------------------------
+
+textToDay :: Text -> Maybe Day
+textToDay t =
+  case T.split (`T.elem` "-/") t of
+    [y,m,d] ->
+      let validYear x = if x < (1800 :: Integer) then x + 2000 else x
+          validMonth x = not (x < 1 || x > (12 :: Int))
+          validDayOfMonth x = not (x < 1 || x > (31 :: Int))
+          months = [ "january", "february", "march", "april"
+                   , "may", "june", "july", "august"
+                   , "september", "october", "november", "december"
+                   ]
+          ml = T.toLower m
+          matchesMonth x = or [ ml == x, ml == T.take 3 x]
+      in do y' <- validYear <$> readMaybe (T.unpack y)
+            m' <- readMaybe (T.unpack m)
+                  <|> (snd <$> (DL.find (matchesMonth . fst) $ zip months [1..]))
+            guard (validMonth m')
+            d' <- readMaybe (T.unpack d)
+            guard (validDayOfMonth d')
+            fromGregorianValid y' m' d'
+    _ -> Nothing
