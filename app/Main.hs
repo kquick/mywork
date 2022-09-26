@@ -19,6 +19,7 @@ import           Control.Lens
 import           Control.Monad ( unless, when )
 import           Control.Monad.IO.Class ( liftIO )
 import           Control.Monad.Reader ( ReaderT, runReaderT, ask, lift )
+import           Control.Monad.Writer ( WriterT, execWriterT, tell )
 import qualified Data.List as DL
 import           Data.Maybe ( catMaybes )
 import qualified Data.Text as T
@@ -294,7 +295,8 @@ handleMyWorkEvent = \case
                            mbprj' <- handleLocationInput mbprj
                            mbloc <- handleLocationChange mbprj'
                            handleNoteInput mbprj' mbloc
-           runReaderT postop t
+           refocus <- execWriterT $ runReaderT postop t
+           when (or refocus) $ modify $ focusRingUpdate myWorkFocusL
 
 
 addLocation :: MyWorkState -> EventM WName MyWorkState ()
@@ -318,16 +320,15 @@ addNote s =
     _ -> return ()
 
 
-type PostOpM a = ReaderT PanelTransition (EventM WName MyWorkState) a
+type PostOpM a = ReaderT PanelTransition (WriterT [Bool] (EventM WName MyWorkState)) a
 
 handleConfirmation :: PostOpM ()
 handleConfirmation = do
-  let confirmOp :: (PaneState Confirm MyWorkEvent -> a)
-                -> EventM WName MyWorkState a
+  let confirmOp :: (PaneState Confirm MyWorkEvent -> a) -> PostOpM a
       confirmOp o = gets (view $ onPane @Confirm . to o)
   transition <- ask
   deactivatedConfirmation <- gets (exitedModal @Confirm transition)
-  when deactivatedConfirmation $ lift $
+  when deactivatedConfirmation $
     do (ps, confirmed) <- confirmOp getConfirmedAction
        modify $ onPane @Confirm .~ ps
        let toFM msg = modify (onPane @FileMgrPane %~ updatePane msg)
@@ -340,16 +341,15 @@ handleConfirmation = do
            s <- get
            s' <- s & onPane @FileMgrPane %%~ fileMgrReadProjectsFile fp
            put s'
-         Just ConfirmQuit -> halt
+         Just ConfirmQuit -> lift $ lift halt
 
 handleNewProject :: PostOpM ()
 handleNewProject = do
-  let inpOp :: (PaneState AddProjPane MyWorkEvent -> a)
-            -> EventM WName MyWorkState a
+  let inpOp :: (PaneState AddProjPane MyWorkEvent -> a) -> PostOpM a
       inpOp o = gets (view $ onPane @AddProjPane . to o)
   transition <- ask
   changed <- gets (exitedModal @AddProjPane transition)
-  when changed $ lift $ do
+  when changed $ do
     (mbOld, mbNewProj) <- inpOp projectInputResults
     case mbNewProj of
          Just newProj ->
@@ -381,7 +381,8 @@ handleProjectChange prjs = do
   pnm <- gets (fmap fst . selectedLocation)
   let mustUpdate = pnm /= pnm0
   let p = DL.find ((== pnm0) . Just . name) (projects prjs)
-  when mustUpdate $ modify $ onPane @Location %~ updatePane p
+  when mustUpdate $ do modify $ onPane @Location %~ updatePane p
+                       tell [True]
   return p
 
 handleLocationInput :: Maybe Project -> PostOpM (Maybe Project)
@@ -412,7 +413,8 @@ handleLocationChange = \case
     loc0 <- gets (fmap snd . selectedLocation)
     loc1 <- gets (fmap fst . selectedNote)
     let mbl = DL.find ((== loc0) . Just . location) (locations p)
-    unless (loc0 == loc1) $ modify $ onPane @Note %~ updatePane mbl
+    unless (loc0 == loc1) $ do modify $ onPane @Note %~ updatePane mbl
+                               tell [True]
     return mbl
 
 handleNoteInput :: Maybe Project -> Maybe Location -> PostOpM ()
