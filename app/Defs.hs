@@ -81,7 +81,7 @@ data MyWorkCore = MyWorkCore { myWorkFocus :: FocusRing WName }
 
 initMyWorkCore :: MyWorkCore
 initMyWorkCore = MyWorkCore { myWorkFocus = focusRing [ WProjList
-                                                      , WLocation
+                                                      , WLocations
                                                       ]
                             }
 
@@ -89,13 +89,13 @@ coreWorkFocusL :: Lens' MyWorkCore (FocusRing WName)
 coreWorkFocusL f c = (\f' -> c { myWorkFocus = f' }) <$> f (myWorkFocus c)
 
 
-data WName = WProjList | WLocation | WNotes | WName Text
+data WName = WProjList | WLocations | WNotes | WName Text
   deriving (Eq, Ord)
 
 instance Show WName where
   show = \case
     WProjList -> "Projects"
-    WLocation -> "Location"
+    WLocations -> "Location"
     WNotes -> "Notes"
     WName n -> unpack n
 
@@ -201,7 +201,7 @@ opOnSelection :: HasSelection s
               => s -> (OpOn, Maybe Text)
 opOnSelection s = case s ^. getFocus of
                     Focused (Just WProjList) -> (ProjectOp, selectedProject s)
-                    Focused (Just WLocation) -> (LocationOp, selectedLocation s)
+                    Focused (Just WLocations) -> (LocationOp, selectedLocation s)
                     Focused (Just WNotes) -> (NoteOp, Nothing) -- TODO: selectedNote
                     _ -> (ProjectOp, Nothing)
 

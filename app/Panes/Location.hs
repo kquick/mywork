@@ -34,7 +34,7 @@ instance Pane WName MyWorkEvent Location (Maybe Project) where
                       return $ updatePane (Just prj) x
     in fromMaybe l $ update l
   drawPane ps gs =
-    let isFcsd = gs^.getFocus.to focused == Just WLocation
+    let isFcsd = gs^.getFocus.to focused == Just WLocations
         rndr (l,v,d) =
           let lattr = if v then id else withAttr a'Error
           in (lattr (txt l)
@@ -46,7 +46,7 @@ instance Pane WName MyWorkEvent Location (Maybe Project) where
              )
                      -- <=> str " "
     in Just $ renderList (const rndr) isFcsd (lL ps)
-  focusable _ ps = focus1If WLocation
+  focusable _ ps = focus1If WLocations
                    $ not $ null $ listElements $ lL ps
   handlePaneEvent _ ev = lList %%~ \w -> nestEventM' w (handleListEvent ev)
   updatePane = \case
