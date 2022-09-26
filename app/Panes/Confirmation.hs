@@ -84,5 +84,5 @@ showConfirmation :: Confirm
 showConfirmation for _ =
   let d = dialog Nothing -- (Just $ show for)
           (Just (1, [ ("OK", True), ("Cancel", False) ]))
-          45
+          70  -- max width of dialog
   in Cf (Just d) (Just for)
