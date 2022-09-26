@@ -12,12 +12,13 @@ import           Brick.Forms
 import           Brick.Panes
 import           Brick.Widgets.Border
 import           Brick.Widgets.Border.Style
+import           Brick.Widgets.Dialog
 import           Brick.Widgets.Edit
 import           Brick.Widgets.List
-import           Brick.Widgets.Dialog
 import           Control.Lens
-import           Control.Monad ( when )
+import           Control.Monad ( unless, when )
 import           Control.Monad.IO.Class ( liftIO )
+import           Control.Monad.Reader ( ReaderT, runReaderT, ask, lift )
 import qualified Data.List as DL
 import           Data.Maybe ( catMaybes )
 import qualified Data.Text as T
@@ -189,6 +190,7 @@ handleMyWorkEvent = \case
       else halt
   VtyEvent (Vty.EvKey (Vty.KChar 'l') [Vty.MCtrl]) ->
     liftIO . Vty.refresh =<< getVtyHandle
+
   -- Other application global events (see Pane.Operations)
   VtyEvent (Vty.EvKey (Vty.KFun 9) []) -> do
     s <- get
@@ -282,17 +284,17 @@ handleMyWorkEvent = \case
 
   -- Otherwise, allow the Panes in the Panel to handle the event.  The wrappers
   -- handle updates for any inter-state transitions.
-  ev -> handleNoteInput
-        $ handleLocationChange
-        $ handleLocationInput
-        $ handleProjectChange
-        $ handleNewProjects
-        $ handleNewProject
-        $ handleConfirmation
-        $ do s <- get
-             (t,s') <- handleFocusAndPanelEvents myWorkFocusL s ev
-             put s'
-             return t
+  ev -> do s <- get
+           (t,s') <- handleFocusAndPanelEvents myWorkFocusL s ev
+           put s'
+           let postop = do handleConfirmation
+                           handleNewProject
+                           prjs <- handleNewProjects
+                           mbprj <- handleProjectChange prjs
+                           mbprj' <- handleLocationInput mbprj
+                           mbloc <- handleLocationChange mbprj'
+                           handleNoteInput mbprj' mbloc
+           runReaderT postop t
 
 
 addLocation :: MyWorkState -> EventM WName MyWorkState ()
@@ -316,15 +318,16 @@ addNote s =
     _ -> return ()
 
 
-handleConfirmation :: EventM WName MyWorkState PanelTransition
-                   -> EventM WName MyWorkState PanelTransition
-handleConfirmation innerHandler = do
+type PostOpM a = ReaderT PanelTransition (EventM WName MyWorkState) a
+
+handleConfirmation :: PostOpM ()
+handleConfirmation = do
   let confirmOp :: (PaneState Confirm MyWorkEvent -> a)
                 -> EventM WName MyWorkState a
       confirmOp o = gets (view $ onPane @Confirm . to o)
-  transition <- innerHandler
+  transition <- ask
   deactivatedConfirmation <- gets (exitedModal @Confirm transition)
-  when deactivatedConfirmation $
+  when deactivatedConfirmation $ lift $
     do (ps, confirmed) <- confirmOp getConfirmedAction
        modify $ onPane @Confirm .~ ps
        let toFM msg = modify (onPane @FileMgrPane %~ updatePane msg)
@@ -338,28 +341,23 @@ handleConfirmation innerHandler = do
            s' <- s & onPane @FileMgrPane %%~ fileMgrReadProjectsFile fp
            put s'
          Just ConfirmQuit -> halt
-  return transition
 
-handleNewProject :: EventM WName MyWorkState PanelTransition
-                 -> EventM WName MyWorkState PanelTransition
-handleNewProject innerHandler = do
+handleNewProject :: PostOpM ()
+handleNewProject = do
   let inpOp :: (PaneState AddProjPane MyWorkEvent -> a)
             -> EventM WName MyWorkState a
       inpOp o = gets (view $ onPane @AddProjPane . to o)
-  transition <- innerHandler
+  transition <- ask
   changed <- gets (exitedModal @AddProjPane transition)
-  when changed $ do
+  when changed $ lift $ do
     (mbOld, mbNewProj) <- inpOp projectInputResults
     case mbNewProj of
          Just newProj ->
            modify $ onPane @FileMgrPane %~ updatePane (UpdProject mbOld newProj)
          Nothing -> return ()
-  return transition
 
-handleNewProjects :: EventM WName MyWorkState PanelTransition
-                  -> EventM WName MyWorkState (PanelTransition, Projects)
-handleNewProjects innerHandler = do
-  transition <- innerHandler
+handleNewProjects :: PostOpM Projects
+handleNewProjects = lift $ do
   (new,prjs) <- gets getProjects
   case new of
     Left cnfrm -> do modify $ \s ->
@@ -374,27 +372,23 @@ handleNewProjects innerHandler = do
                . (onPane @FileMgrPane %~ updatePane AckNewProjects)
              )
     Right False -> return ()
-  return (transition, prjs)  -- KWQ: viability of prjs if pending confirmation?
+  return prjs
 
-handleProjectChange :: EventM WName MyWorkState (PanelTransition, Projects)
-                    -> EventM WName MyWorkState (PanelTransition, Maybe Project)
-handleProjectChange innerHandler = do
+
+handleProjectChange :: Projects -> PostOpM (Maybe Project)
+handleProjectChange prjs = do
   pnm0 <- gets selectedProject
-  (transition, prjs) <- innerHandler
-  pnm <- gets selectedProject
+  pnm <- gets (fmap fst . selectedLocation)
   let mustUpdate = pnm /= pnm0
-  let p = DL.find ((== pnm) . Just . name) (projects prjs)
+  let p = DL.find ((== pnm0) . Just . name) (projects prjs)
   when mustUpdate $ modify $ onPane @Location %~ updatePane p
-  return (transition, p)
+  return p
 
-
-handleLocationInput :: EventM WName MyWorkState (PanelTransition, Maybe Project)
-                    -> EventM WName MyWorkState (PanelTransition, Maybe Project)
-handleLocationInput innerHandler = do
-  let inpOp :: (PaneState LocationInputPane MyWorkEvent -> a)
-            -> EventM WName MyWorkState a
-      inpOp o = gets (view $ onPane @LocationInputPane . to o)
-  (transition, mbPrj) <- innerHandler
+handleLocationInput :: Maybe Project -> PostOpM (Maybe Project)
+handleLocationInput mbPrj = do
+  let inpOp :: (PaneState LocationInputPane MyWorkEvent -> a) -> PostOpM a
+      inpOp o = lift $ gets (view $ onPane @LocationInputPane . to o)
+  transition <- ask
   changed <- gets (exitedModal @LocationInputPane transition)
   if changed
     then do (mbOldL, mbNewLoc) <- inpOp locationInputResults
@@ -406,37 +400,26 @@ handleLocationInput innerHandler = do
                 modify (   (onPane @FileMgrPane %~ updatePane u)
                          . (onPane @Location %~ updatePane (Just p'))
                        )
-                return (transition, Just p')
-              _ -> return (transition, mbPrj)
-    else return (transition, mbPrj)
+                return $ Just p'
+              _ -> return mbPrj
+    else return mbPrj
 
 
-handleLocationChange :: EventM WName MyWorkState (PanelTransition, Maybe Project)
-                     -> EventM WName MyWorkState
-                        (PanelTransition, Maybe Project, Maybe Location)
-handleLocationChange innerHandler = do
-  loc0 <- gets (fmap snd . selectedLocation)
-  (transition, mbPrj) <- innerHandler
-  loc1 <- gets (fmap snd . selectedLocation)
-  let mustUpdate = loc1 /= loc0
-  case mbPrj of
-    Nothing -> return (transition, Nothing, Nothing)
-    Just p -> do
-      let mbl = DL.find ((== loc1) . Just . location) (locations p)
-      when mustUpdate $ do
-        case mbl of
-          Just l -> modify $ onPane @Note %~ updatePane (Just l)
-          Nothing -> modify $ onPane @Note %~ updatePane Nothing
-      return (transition, mbPrj, mbl)
+handleLocationChange :: Maybe Project -> PostOpM (Maybe Location)
+handleLocationChange = \case
+  Nothing -> return Nothing
+  Just p -> do
+    loc0 <- gets (fmap snd . selectedLocation)
+    loc1 <- gets (fmap fst . selectedNote)
+    let mbl = DL.find ((== loc0) . Just . location) (locations p)
+    unless (loc0 == loc1) $ modify $ onPane @Note %~ updatePane mbl
+    return mbl
 
-handleNoteInput :: EventM WName MyWorkState
-                   (PanelTransition, Maybe Project, Maybe Location)
-                -> EventM WName MyWorkState ()
-handleNoteInput innerHandler = do
-  let inpOp :: (PaneState NoteInputPane MyWorkEvent -> a)
-            -> EventM WName MyWorkState a
-      inpOp o = gets (view $ onPane @NoteInputPane . to o)
-  (transition, mbPrj, mbLoc) <- innerHandler
+handleNoteInput :: Maybe Project -> Maybe Location -> PostOpM ()
+handleNoteInput mbPrj mbLoc = do
+  let inpOp :: (PaneState NoteInputPane MyWorkEvent -> a) -> PostOpM a
+      inpOp o = lift $ gets (view $ onPane @NoteInputPane . to o)
+  transition <- ask
   changed <- gets (exitedModal @NoteInputPane transition)
   when changed $
     do (mbOldN, mbNewNote) <- inpOp noteInputResults
