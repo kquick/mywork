@@ -19,7 +19,6 @@ import           Brick hiding ( Location )
 import           Brick.Focus
 import           Brick.Forms
 import           Brick.Panes
-import           Brick.Widgets.Border
 import qualified Brick.Widgets.Center as C
 import           Control.Lens
 import           Data.Maybe ( isJust )
@@ -30,6 +29,7 @@ import           Data.Time.Calendar ( Day )
 import qualified Graphics.Vty as Vty
 
 import           Defs
+import           Panes.Common.Attrs
 import           Panes.Common.Inputs
 import           Sync
 
@@ -64,8 +64,8 @@ instance Pane WName MyWorkEvent LocationInputPane () where
   initPaneState _ = NL Nothing Nothing "" Nothing Nothing
   drawPane ps _gs =
     C.centerLayer
-    . borderWithLabel (str $ (maybe "New" (const "Edit") $ nOrig ps)
-                             <> " " <> show (nProj ps) <> " Location")
+    . modalB ((maybe "New" (const "Edit") $ nOrig ps)
+              <> " " <> (T.pack $ show $ nProj ps) <> " Location")
     . vLimit 25
     . hLimitPercent 65
     . (\f -> vBox [ renderForm f

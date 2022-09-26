@@ -14,7 +14,6 @@ module Defs where
 import           Brick hiding (Location)
 import           Brick.Focus
 import           Brick.Panes
-import           Brick.Widgets.Border
 import           Control.Lens
 import qualified Data.List as DL
 import           Data.Text ( Text, pack, unpack )
@@ -99,14 +98,6 @@ instance Show WName where
     WLocation -> "Location"
     WNotes -> "Notes"
     WName n -> unpack n
-
-
--- | Adds a border with a title to the current widget.  First argument is True if
--- the current widget has focus.
-titledB :: Bool -> Text -> Widget WName -> Widget WName
-titledB fcsd text =
-  let ttlAttr = if fcsd then withAttr (attrName "Selected") else id
-  in borderWithLabel (ttlAttr $ txt text)
 
 
 type MyWorkEvent = ()  -- No app-specific event for this simple app

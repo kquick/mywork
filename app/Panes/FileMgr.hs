@@ -39,6 +39,7 @@ import qualified System.Directory as D
 import           System.FilePath ( (</>), takeDirectory )
 
 import           Defs
+import           Panes.Common.Attrs
 import           Sync
 
 

@@ -13,13 +13,13 @@ where
 
 import           Brick
 import           Brick.Panes
-import           Brick.Widgets.Border
 import           Brick.Widgets.Center
 import qualified Brick.Widgets.Core as BC
 import qualified Data.Text as T
 import qualified Graphics.Vty as Vty
 
 import           Defs
+import           Panes.Common.Attrs
 import           Panes.Common.QQDefs
 
 
@@ -41,7 +41,7 @@ drawHelp :: Widget WName
 drawHelp =
   let hsize = 70
       infoPane = vLimitPercent 80 $ hLimitPercent hsize
-                 $ borderWithLabel (txt "MyWork Help")
+                 $ modalB "MyWork Help"
                  $ withVScrollBarHandles
                  $ withVScrollBars OnRight
                  $ viewport (WName "HelpScroll") Vertical

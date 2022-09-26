@@ -19,7 +19,6 @@ import           Brick hiding ( Location )
 import           Brick.Focus
 import           Brick.Forms
 import           Brick.Panes
-import           Brick.Widgets.Border
 import qualified Brick.Widgets.Center as C
 import           Control.Lens
 import           Control.Monad.IO.Class ( MonadIO, liftIO )
@@ -33,6 +32,7 @@ import qualified Graphics.Vty as Vty
 
 import           Defs
 import           Panes.Common.Inputs
+import           Panes.Common.Attrs
 
 
 data NoteInputPane
@@ -65,9 +65,9 @@ instance Pane WName MyWorkEvent NoteInputPane () where
   initPaneState _ = NN Nothing Nothing Nothing Nothing
   drawPane ps _gs =
     C.centerLayer
-    . borderWithLabel (str $ (maybe "New" (const "Edit") $ nOrig ps)
-                       -- <> " " <> show (nProj ps)
-                       <> " Note")
+    . modalB ((maybe "New" (const "Edit") $ nOrig ps)
+               -- <> " " <> show (nProj ps)
+               <> " Note")
     . vLimit 25
     . hLimitPercent 65
     . (\f -> vBox [ renderForm f
