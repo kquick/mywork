@@ -32,6 +32,7 @@ executable mywork
     other-modules:    Paths_mywork
                       Defs
                       Panes.AddProj
+                      Panes.Common.Inputs
                       Panes.Confirmation
                       Panes.FileMgr
                       Panes.Location

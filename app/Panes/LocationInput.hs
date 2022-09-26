@@ -22,17 +22,15 @@ import           Brick.Panes
 import           Brick.Widgets.Border
 import qualified Brick.Widgets.Center as C
 import           Control.Lens
-import           Control.Monad.IO.Class ( liftIO )
 import           Data.Maybe ( isJust )
 import qualified Data.Sequence as Seq
 import           Data.Text ( Text )
 import qualified Data.Text as T
 import           Data.Time.Calendar ( Day )
 import qualified Graphics.Vty as Vty
-import           System.Directory ( doesDirectoryExist )
-import           System.FilePath ( isValid, isRelative, normalise )
 
 import           Defs
+import           Panes.Common.Inputs
 
 
 data LocationInputPane
@@ -130,12 +128,8 @@ validateForm inner = do
   case s ^. nLFL of
     Nothing -> return s
     Just pf ->
-      let l = formState pf ^. nlName
-          tgt = WName "New Location"
-      in if isLocationLocal' l
-         then do e <- liftIO $ doesDirectoryExist $ T.unpack l
-                 return $ s & nLFL %~ fmap (setFieldValid e tgt)
-         else return s
+      do (tgt,valid) <- validateLocationInput False $ formState pf ^. nlName
+         return $ s & nLFL %~ fmap (setFieldValid valid tgt)
 
 
 initLocInput :: Text -- Project Name
@@ -154,25 +148,8 @@ initLocInput projName locs mbLoc ps =
           nlForm =
             newForm
             [
-              label "Location" @@=
-              let validate = \case
-                    (l:_) -> if (l `elem` (location <$> locs)
-                                  && (maybe True ((l /=) . location) mbLoc))
-                                || not (isValid (T.unpack l))
-                                || (isLocationLocal' l && isRelative (T.unpack l))
-                              then Nothing  -- invalid
-                              else Just $ T.pack $ normalise $ T.unpack l
-                    o -> Just $ T.intercalate "\n" o
-              in editField nlName (WName "New Location") (Just 1)
-                 id validate (txt . headText) id
-            , label "Date" @@= let validate = \case
-                                     ("":_) -> Just Nothing
-                                     (l:_) -> Just <$> textToDay l
-                                     _ -> Nothing
-                                   dayInit = maybe "" (T.pack . show)
-                                   dayRender = txt . headText
-                               in editField nlDay (WName "Location Date (Y-M-D)")
-                                  (Just 1) dayInit validate dayRender id
+              label "Location" @@= locationInput locs mbLoc False nlName
+            , label "Date" @@= mbDateInput nlDay
             ]
             (case mbLoc of
                Nothing -> blankNewLoc

@@ -31,6 +31,7 @@ import qualified Data.Text as T
 import qualified Graphics.Vty as Vty
 
 import           Defs hiding (Location)
+import           Panes.Common.Inputs
 
 
 data AddProjPane

@@ -15,15 +15,12 @@ import           Brick hiding (Location)
 import           Brick.Focus
 import           Brick.Panes
 import           Brick.Widgets.Border
-import           Control.Applicative ( (<|>) )
 import           Control.Lens
-import           Control.Monad ( guard )
 import qualified Data.List as DL
 import           Data.Text ( Text, pack, unpack )
 import qualified Data.Text as T
 import           Data.Time.Calendar
 import           GHC.Generics ( Generic )
-import           Text.Read ( readMaybe )
 
 
 newtype Projects = Projects { projects :: [Project] }
@@ -255,32 +252,3 @@ a'Selected = attrName "selected"
 
 a'Error :: AttrName
 a'Error = attrName "Error"
-
-headText :: [Text] -> Text
-headText = \case
-  [] -> ""
-  (o:_) -> o
-
-----------------------------------------------------------------------
-
-textToDay :: Text -> Maybe Day
-textToDay t =
-  case T.split (`T.elem` "-/") t of
-    [y,m,d] ->
-      let validYear x = if x < (1800 :: Integer) then x + 2000 else x
-          validMonth x = not (x < 1 || x > (12 :: Int))
-          validDayOfMonth x = not (x < 1 || x > (31 :: Int))
-          months = [ "january", "february", "march", "april"
-                   , "may", "june", "july", "august"
-                   , "september", "october", "november", "december"
-                   ]
-          ml = T.toLower m
-          matchesMonth x = or [ ml == x, ml == T.take 3 x]
-      in do y' <- validYear <$> readMaybe (T.unpack y)
-            m' <- readMaybe (T.unpack m)
-                  <|> (snd <$> (DL.find (matchesMonth . fst) $ zip months [1..]))
-            guard (validMonth m')
-            d' <- readMaybe (T.unpack d)
-            guard (validDayOfMonth d')
-            fromGregorianValid y' m' d'
-    _ -> Nothing

@@ -16,6 +16,7 @@ import qualified Data.Text as T
 import qualified Data.Vector as V
 
 import           Defs
+import           Panes.Common.Inputs
 
 
 instance Pane WName MyWorkEvent Note (Maybe Location) where

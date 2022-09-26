@@ -32,6 +32,7 @@ import           Data.Time.Clock
 import qualified Graphics.Vty as Vty
 
 import           Defs
+import           Panes.Common.Inputs
 
 
 data NoteInputPane
