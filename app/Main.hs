@@ -62,17 +62,17 @@ type MyWorkState = Panel WName MyWorkEvent MyWorkCore
 initialState :: MyWorkState
 initialState = focusRingUpdate myWorkFocusL
                $ addToPanel Never
-               $ addToPanel (WhenFocusedModalHandlingAllEvents Nothing)
-               $ addToPanel (WhenFocusedModalHandlingAllEvents Nothing)
-               $ addToPanel (WhenFocusedModalHandlingAllEvents Nothing)
+               $ addToPanel WhenFocusedModalHandlingAllEvents
+               $ addToPanel WhenFocusedModalHandlingAllEvents
+               $ addToPanel WhenFocusedModalHandlingAllEvents
                $ addToPanel Never
                $ addToPanel Never
                $ addToPanel WhenFocused
                $ addToPanel WhenFocused
                $ addToPanel WhenFocused
-               $ addToPanel (WhenFocusedModal Nothing)
-               $ addToPanel (WhenFocusedModalHandlingAllEvents Nothing)
-               $ addToPanel (WhenFocusedModal Nothing)
+               $ addToPanel WhenFocusedModal
+               $ addToPanel WhenFocusedModalHandlingAllEvents
+               $ addToPanel WhenFocusedModal
                $ basePanel initMyWorkCore
 
 main :: IO ()
