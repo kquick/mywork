@@ -40,7 +40,8 @@ instance Pane WName MyWorkEvent OperationsPane () where
               $ withAttr buttonAttr
               <$> catMaybes
               [
-                Just $ str $ "F2: Add " <> addWhat o
+                Just $ str $ "F1 Help"
+              , Just $ str $ "F2 Add " <> addWhat o
               , if o == maxBound
                 then Nothing
                 else Just $ projInd $ str $ "F3 Add " <> addWhat (succ o)

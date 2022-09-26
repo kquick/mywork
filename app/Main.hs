@@ -31,6 +31,7 @@ import           Defs
 import           Panes.AddProj
 import           Panes.Confirmation
 import           Panes.FileMgr
+import           Panes.Help
 import           Panes.Location ()
 import           Panes.LocationInput
 import           Panes.NoteInput
@@ -54,6 +55,7 @@ type MyWorkState = Panel WName MyWorkEvent MyWorkCore
                     , Projects
                     , FileMgrPane
                     , ConfirmationPane
+                    , HelpPane
                     ]
 
 initialState :: MyWorkState
@@ -69,6 +71,7 @@ initialState = focusRingUpdate myWorkFocusL
                $ addToPanel WhenFocused
                $ addToPanel (WhenFocusedModal Nothing)
                $ addToPanel (WhenFocusedModalHandlingAllEvents Nothing)
+               $ addToPanel (WhenFocusedModal Nothing)
                $ basePanel initMyWorkCore
 
 main :: IO ()
@@ -157,6 +160,7 @@ drawMyWork mws =
                            , panelDraw @LocationInputPane mws
                            , panelDraw @NoteInputPane mws
                            , panelDraw @ConfirmationPane mws
+                           , panelDraw @HelpPane mws
                            ]
                  <> mainPanes
       disableLower = \case
@@ -183,6 +187,10 @@ handleMyWorkEvent = \case
       else do
         s' <- s & onPane @FileMgrPane %%~ liftIO . showFileMgr
         put $ s' & focusRingUpdate myWorkFocusL
+
+  -- Show help on F1
+  VtyEvent (Vty.EvKey (Vty.KFun 1) []) ->
+    modify $ onPane @HelpPane .~ initHelp
 
   -- Add an entry to the currently selected pane
   VtyEvent (Vty.EvKey (Vty.KFun 2) []) -> do

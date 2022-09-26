@@ -33,8 +33,10 @@ executable mywork
                       Defs
                       Panes.AddProj
                       Panes.Common.Inputs
+                      Panes.Common.QQDefs
                       Panes.Confirmation
                       Panes.FileMgr
+                      Panes.Help
                       Panes.Location
                       Panes.LocationInput
                       Panes.Operations
@@ -54,6 +56,7 @@ executable mywork
                     , directory >= 1.3 && < 1.4
                     , filepath >= 1.4 && < 1.5
                     , lens >= 5.1 && < 5.2
+                    , template-haskell
                     , text
                     , text-zipper >= 0.12 && < 0.13
                     , time
