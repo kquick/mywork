@@ -1,4 +1,5 @@
 {-# LANGUAGE DataKinds #-}
+{-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE LambdaCase #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE TypeApplications #-}
@@ -281,19 +282,17 @@ handleMyWorkEvent = \case
 
   -- Otherwise, allow the Panes in the Panel to handle the event.  The wrappers
   -- handle updates for any inter-state transitions.
-  ev -> do
-    changes <- handleNoteInput
-               $ handleLocationChange
-               $ handleLocationInput
-               $ handleProjectChange
-               $ handleNewProjects
-               $ handleNewProject
-               $ handleConfirmation
-               $ do s <- get
-                    s' <- handleFocusAndPanelEvents myWorkFocusL s ev
-                    put s'
-                    return False
-    when changes $ modify $ focusRingUpdate myWorkFocusL
+  ev -> handleNoteInput
+        $ handleLocationChange
+        $ handleLocationInput
+        $ handleProjectChange
+        $ handleNewProjects
+        $ handleNewProject
+        $ handleConfirmation
+        $ do s <- get
+             (t,s') <- handleFocusAndPanelEvents myWorkFocusL s ev
+             put s'
+             return t
 
 
 addLocation :: MyWorkState -> EventM WName MyWorkState ()
@@ -317,64 +316,52 @@ addNote s =
     _ -> return ()
 
 
-handleConfirmation :: EventM WName MyWorkState Bool
-                   -> EventM WName MyWorkState Bool
+handleConfirmation :: EventM WName MyWorkState PanelTransition
+                   -> EventM WName MyWorkState PanelTransition
 handleConfirmation innerHandler = do
   let confirmOp :: (PaneState Confirm MyWorkEvent -> a)
                 -> EventM WName MyWorkState a
       confirmOp o = gets (view $ onPane @Confirm . to o)
-  wasActive <- confirmOp isConfirmationActive
-  forceChange <- innerHandler
-  nowActive <- confirmOp isConfirmationActive
-  if (wasActive && not nowActive)
-    then do (ps, confirmed) <- confirmOp getConfirmedAction
-            modify $ onPane @Confirm .~ ps
-            case confirmed of
-              Nothing -> return forceChange
-              Just (ConfirmProjectDelete pname) -> do
-                modify (onPane @FileMgrPane %~ updatePane (DelProject pname))
-                return True
-              Just (ConfirmLocationDelete pname locn) -> do
-                modify (onPane @FileMgrPane %~ updatePane (DelLocation pname locn))
-                return True
-              Just (ConfirmNoteDelete pname locn nt) -> do
-                modify (onPane @FileMgrPane %~ updatePane (DelNote pname locn nt))
-                return True
-              Just (ConfirmLoad fp) -> do
-                s <- get
-                s' <- s & onPane @FileMgrPane %%~ fileMgrReadProjectsFile fp
-                put s'
-                return True
-              Just ConfirmQuit -> halt >> return True
-    else
-    -- Focus ring update is needed if indicated by the lower level handler or if
-    -- the confirmation pane is just activated or just deactivated
-    return (forceChange || wasActive /= not nowActive)
+  transition <- innerHandler
+  deactivatedConfirmation <- gets (exitedModal @Confirm transition)
+  when deactivatedConfirmation $
+    do (ps, confirmed) <- confirmOp getConfirmedAction
+       modify $ onPane @Confirm .~ ps
+       let toFM msg = modify (onPane @FileMgrPane %~ updatePane msg)
+       case confirmed of
+         Nothing -> return ()
+         Just (ConfirmProjectDelete pname) -> toFM $ DelProject pname
+         Just (ConfirmLocationDelete pname l) -> toFM $ DelLocation pname l
+         Just (ConfirmNoteDelete pname locn nt) -> toFM $ DelNote pname locn nt
+         Just (ConfirmLoad fp) -> do
+           s <- get
+           s' <- s & onPane @FileMgrPane %%~ fileMgrReadProjectsFile fp
+           put s'
+         Just ConfirmQuit -> halt
+  return transition
 
-handleNewProject :: EventM WName MyWorkState Bool
-                 -> EventM WName MyWorkState Bool
+handleNewProject :: EventM WName MyWorkState PanelTransition
+                 -> EventM WName MyWorkState PanelTransition
 handleNewProject innerHandler = do
   let inpOp :: (PaneState AddProjPane MyWorkEvent -> a)
             -> EventM WName MyWorkState a
       inpOp o = gets (view $ onPane @AddProjPane . to o)
-  wasActive <- inpOp isAddProjActive
-  forceChange <- innerHandler
-  nowActive <- inpOp isAddProjActive
-  let changed = wasActive && not nowActive
+  transition <- innerHandler
+  changed <- gets (exitedModal @AddProjPane transition)
   when changed $ do
     (mbOld, mbNewProj) <- inpOp projectInputResults
     case mbNewProj of
          Just newProj ->
            modify $ onPane @FileMgrPane %~ updatePane (UpdProject mbOld newProj)
          Nothing -> return ()
-  return (forceChange || changed)
+  return transition
 
-handleNewProjects :: EventM WName MyWorkState Bool
-                  -> EventM WName MyWorkState (Bool, Projects)
+handleNewProjects :: EventM WName MyWorkState PanelTransition
+                  -> EventM WName MyWorkState (PanelTransition, Projects)
 handleNewProjects innerHandler = do
-  forceChange <- innerHandler
+  transition <- innerHandler
   (new,prjs) <- gets getProjects
-  change <- case new of
+  case new of
     Left cnfrm -> do modify $ \s ->
                        if not $ s ^. onPane @Confirm . to isConfirmationActive
                        then s
@@ -382,40 +369,33 @@ handleNewProjects innerHandler = do
                             & onPane @FileMgrPane %~ updatePane AckNewProjects
                             & focusRingUpdate myWorkFocusL
                        else s
-                     return False
     Right True ->
-      do modify (   (onPane @Projects %~ updatePane prjs)
-                  . (onPane @FileMgrPane %~ updatePane AckNewProjects)
-                )
-         return True
-    Right False -> return False
-  return (forceChange || change, prjs)  -- KWQ: viability of prjs if pending confirmation?
+      modify (   (onPane @Projects %~ updatePane prjs)
+               . (onPane @FileMgrPane %~ updatePane AckNewProjects)
+             )
+    Right False -> return ()
+  return (transition, prjs)  -- KWQ: viability of prjs if pending confirmation?
 
-handleProjectChange :: EventM WName MyWorkState (Bool, Projects)
-                    -> EventM WName MyWorkState (Bool, Maybe Project)
+handleProjectChange :: EventM WName MyWorkState (PanelTransition, Projects)
+                    -> EventM WName MyWorkState (PanelTransition, Maybe Project)
 handleProjectChange innerHandler = do
   pnm0 <- gets selectedProject
-  (forceChange, prjs) <- innerHandler
+  (transition, prjs) <- innerHandler
   pnm <- gets selectedProject
-  let mustUpdate = forceChange || pnm /= pnm0
+  let mustUpdate = pnm /= pnm0
   let p = DL.find ((== pnm) . Just . name) (projects prjs)
-  if mustUpdate
-    then do modify $ onPane @Location %~ updatePane p
-            return (mustUpdate, p)
-    else return (mustUpdate, p)
+  when mustUpdate $ modify $ onPane @Location %~ updatePane p
+  return (transition, p)
 
 
-handleLocationInput :: EventM WName MyWorkState (Bool, Maybe Project)
-                    -> EventM WName MyWorkState (Bool, Maybe Project)
+handleLocationInput :: EventM WName MyWorkState (PanelTransition, Maybe Project)
+                    -> EventM WName MyWorkState (PanelTransition, Maybe Project)
 handleLocationInput innerHandler = do
   let inpOp :: (PaneState LocationInputPane MyWorkEvent -> a)
             -> EventM WName MyWorkState a
       inpOp o = gets (view $ onPane @LocationInputPane . to o)
-  wasActive <- inpOp isLocInputActive
-  (forceChange, mbPrj) <- innerHandler
-  nowActive <- inpOp isLocInputActive
-  let changed = wasActive && not nowActive
-  let resBool = forceChange || changed
+  (transition, mbPrj) <- innerHandler
+  changed <- gets (exitedModal @LocationInputPane transition)
   if changed
     then do (mbOldL, mbNewLoc) <- inpOp locationInputResults
             case (mbNewLoc, mbPrj) of
@@ -426,39 +406,38 @@ handleLocationInput innerHandler = do
                 modify (   (onPane @FileMgrPane %~ updatePane u)
                          . (onPane @Location %~ updatePane (Just p'))
                        )
-                return (resBool, Just p')
-              _ -> return (resBool, mbPrj)
-    else return (resBool, mbPrj)
+                return (transition, Just p')
+              _ -> return (transition, mbPrj)
+    else return (transition, mbPrj)
 
 
-handleLocationChange :: EventM WName MyWorkState (Bool, Maybe Project)
-                     -> EventM WName MyWorkState (Bool, Maybe Project, Maybe Location)
+handleLocationChange :: EventM WName MyWorkState (PanelTransition, Maybe Project)
+                     -> EventM WName MyWorkState
+                        (PanelTransition, Maybe Project, Maybe Location)
 handleLocationChange innerHandler = do
   loc0 <- gets selectedLocation
-  (forceChange, mbPrj) <- innerHandler
+  (transition, mbPrj) <- innerHandler
   loc1 <- gets selectedLocation
-  let mustUpdate = forceChange || loc1 /= loc0
+  let mustUpdate = loc1 /= loc0
   case mbPrj of
-    Nothing -> return (mustUpdate, Nothing, Nothing)
+    Nothing -> return (transition, Nothing, Nothing)
     Just p -> do
       let mbl = DL.find ((== loc1) . Just . location) (locations p)
       when mustUpdate $ do
         case mbl of
           Just l -> modify $ onPane @Note %~ updatePane (Just l)
           Nothing -> modify $ onPane @Note %~ updatePane Nothing
-      return (mustUpdate, mbPrj, mbl)
+      return (transition, mbPrj, mbl)
 
-handleNoteInput :: EventM WName MyWorkState (Bool, Maybe Project, Maybe Location)
-                -> EventM WName MyWorkState Bool
+handleNoteInput :: EventM WName MyWorkState
+                   (PanelTransition, Maybe Project, Maybe Location)
+                -> EventM WName MyWorkState ()
 handleNoteInput innerHandler = do
   let inpOp :: (PaneState NoteInputPane MyWorkEvent -> a)
             -> EventM WName MyWorkState a
       inpOp o = gets (view $ onPane @NoteInputPane . to o)
-  wasActive <- inpOp isNoteInputActive
-  (forceChange, mbPrj, mbLoc) <- innerHandler
-  nowActive <- inpOp isNoteInputActive
-  let changed = wasActive && not nowActive
-  let resBool = forceChange || changed
+  (transition, mbPrj, mbLoc) <- innerHandler
+  changed <- gets (exitedModal @NoteInputPane transition)
   when changed $
     do (mbOldN, mbNewNote) <- inpOp noteInputResults
        case (mbNewNote, mbPrj, mbLoc) of
@@ -469,7 +448,6 @@ handleNoteInput innerHandler = do
                           . (onPane @Note %~ updatePane (Just l'))
                         )
          _ -> do return ()
-  return resBool
 
 
 myWorkFocusL :: Lens' MyWorkState (FocusRing WName)
