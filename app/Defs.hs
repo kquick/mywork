@@ -179,13 +179,18 @@ isLocationLocal' l = not $ or [ "http://" `T.isPrefixOf` l
 updateProject :: Maybe Text -> Project -> Projects -> Projects
 updateProject onm p (Projects ps) =
   let oldName = maybe (name p) id onm
-  in Projects $ p : filter ((/= oldName) . name) ps
+      (match, other) = DL.partition ((== oldName) . name) ps
+      p' = foldr (updateLocation Nothing) p (concatMap locations match)
+  in Projects $ p' : other
 
 
 updateLocation :: Maybe Text -> Location -> Project -> Project
 updateLocation ol l p =
   let oldName = maybe (location l) id ol
-  in p { locations = l : filter ((/= oldName) . location) (locations p) }
+      (match, other) = DL.partition ((== oldName) . location) (locations p)
+      l' = foldr addNote l (concatMap notes match)
+      addNote n lc = lc { notes = n : filter ((/= noteTitle n) . noteTitle) (notes lc) }
+  in p { locations = l' : other }
 
 
 updateNote :: Maybe Text -> Note -> Location -> Project -> (Project, Location)
