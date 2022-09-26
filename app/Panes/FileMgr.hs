@@ -304,7 +304,11 @@ fileMgrReadProjectsFile fp ps = readProjectsFile fp >>= \case
 -- | Called to display the FileMgr modal pane to allow the user to Load or Save.
 showFileMgr :: PaneState FileMgrPane MyWorkEvent
             -> IO (PaneState FileMgrPane MyWorkEvent)
-showFileMgr prev = do
-  dataDir <- takeDirectory <$> ensureDefaultProjectFile
-  fb <- newFileBrowser selectNonDirectories (WName "FMgr:Browser") (Just dataDir)
-  return $ prev & fBrowser .~ Just fb
+showFileMgr prev =
+  case prev ^. fBrowser of
+    Just _ -> return prev
+    Nothing -> do
+      let n = WName "FMgr:Browser"
+      dataDir <- takeDirectory <$> ensureDefaultProjectFile
+      fb <- newFileBrowser selectNonDirectories n (Just dataDir)
+      return $ prev & fBrowser .~ Just fb
