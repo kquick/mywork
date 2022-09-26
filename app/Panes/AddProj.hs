@@ -22,7 +22,6 @@ import           Brick.Panes
 import qualified Brick.Widgets.Center as C
 import           Control.Lens hiding ( under )
 import           Data.Either ( isRight )
-import qualified Data.List as DL
 import           Data.Maybe ( isJust )
 import qualified Data.Sequence as Seq
 import           Data.Text ( Text )
@@ -203,8 +202,8 @@ initAddProj prjs mbProj ps =
             , under "...: " @@=
               editTextField npGroupT (WName "+Proj:Grp:Text") (Just 1)
             , label "Role" @@=
-              setFieldConcat (hBox . DL.intersperse (str "  "))
-              . radioField npRole
+              -- setFieldConcat (hBox . DL.intersperse (str "  ")) .
+              radioField npRole
               [ (Author, (WName "+Prj:Role:Author"), "Author")
               , (Maintainer, (WName "+Prj:Role:Maintainer"), "Maintainer")
               , (Contributor, (WName "+Prj:Role:Contributor"), "Contributor")
