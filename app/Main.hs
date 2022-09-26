@@ -41,6 +41,7 @@ import           Panes.ProjInfo
 import           Panes.Projects ()
 import           Panes.Summary
 import           Paths_mywork ( version )
+import           Sync
 
 
 type MyWorkState = Panel WName MyWorkEvent MyWorkCore
@@ -391,13 +392,14 @@ handleLocationInput innerHandler = do
   if changed
     then do (mbOldL, mbNewLoc) <- inpOp locationInputResults
             case (mbNewLoc, mbPrj) of
-              (Just newLoc, Just p) ->
-                let p' = updateLocation mbOldL newLoc p
+              (Just newLoc, Just p) -> do
+                locsts <- syncLocation newLoc
+                let p' = updateLocation mbOldL (applyLocSync locsts newLoc) p
                     u = UpdProject Nothing p'
-                in do modify ( (onPane @FileMgrPane %~ updatePane u)
-                             . (onPane @Location %~ updatePane (Just p'))
-                             )
-                      return (resBool, Just p')
+                modify (   (onPane @FileMgrPane %~ updatePane u)
+                         . (onPane @Location %~ updatePane (Just p'))
+                       )
+                return (resBool, Just p')
               _ -> return (resBool, mbPrj)
     else return (resBool, mbPrj)
 

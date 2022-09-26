@@ -27,7 +27,7 @@ import           Brick.Widgets.FileBrowser
 import qualified Control.Exception as X
 import           Control.Lens
 import           Control.Monad ( unless )
-import           Control.Monad.IO.Class ( liftIO )
+import           Control.Monad.IO.Class ( MonadIO, liftIO )
 import           Data.Aeson ( ToJSON, FromJSON, eitherDecode, encode
                             , parseJSON, withObject, (.:), (.:?), (.!=) )
 import qualified Data.ByteString.Lazy as BS
@@ -39,6 +39,7 @@ import qualified System.Directory as D
 import           System.FilePath ( (</>), takeDirectory )
 
 import           Defs
+import           Sync
 
 
 data FileMgrPane
@@ -177,12 +178,11 @@ handleFileLoadEvent ev ts =
                 in liftIO $ D.doesDirectoryExist fp >>= \e ->
                   if e
                   then return $ ts & fBrowser .~ Just b
-                  else do newprjs <- eitherDecode <$> liftIO (BS.readFile fp)
-                          case newprjs of
-                            Left er -> return $ ts & errMsgL .~ er
-                            Right prjs -> return $ (ts { newProjects = True })
-                                         & fBrowser .~ Nothing
-                                         & myProjectsL .~ prjs
+                  else readProjectsFile fp >>= \case
+                    Left er -> return $ ts & errMsgL .~ er
+                    Right prjs -> return $ (ts { newProjects = True })
+                                  & fBrowser .~ Nothing
+                                  & myProjectsL .~ prjs
       case ev of
         Vty.EvKey Vty.KEnter [] -> selectFile
         -- EvKey (KChar ' ') [] -> selectFile -- override filebrowser's default multi-select ability
@@ -233,7 +233,12 @@ instance FromJSON Project where
 instance FromJSON Group
 instance FromJSON Role
 instance FromJSON Language
-instance FromJSON Location
+instance FromJSON Location where
+  parseJSON = withObject "Location" $ \v -> Location
+    <$> v .: "location"
+    <*> v .: "locatedOn"
+    <*> v .:? "locValid" .!= True -- assumed -- Added in v0.1.1.0
+    <*> v .: "notes"
 instance FromJSON Note
 -- deriving via Generically Note instance ToJSON Note
 
@@ -253,10 +258,17 @@ initFileMgr :: PaneState FileMgrPane MyWorkEvent
             -> IO (PaneState FileMgrPane MyWorkEvent)
 initFileMgr ps = do
   f <- ensureDefaultProjectFile
-  newprjs <- eitherDecode <$> liftIO (BS.readFile f)
+  readProjectsFile f >>= \case
+    Right prjs -> return $ (ps { newProjects = True }) & myProjectsL .~ prjs
+    Left e -> error e
+
+
+readProjectsFile :: MonadIO m => FilePath -> m (Either String Projects)
+readProjectsFile fp = do
+  newprjs <- eitherDecode <$> liftIO (BS.readFile fp)
   case newprjs of
-    Right prjs -> return $ (ps { newProjects = True}) & myProjectsL .~ prjs
-    Left e -> error e -- return ps -- ignore bad file on startup; will show on explicit load
+    Right prjs -> Right . Projects <$> mapM syncProject (projects prjs)
+    e@(Left _) -> return e
 
 
 -- | Called to display the FileMgr modal pane to allow the user to Load or Save.

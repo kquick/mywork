@@ -31,6 +31,7 @@ import qualified Graphics.Vty as Vty
 
 import           Defs
 import           Panes.Common.Inputs
+import           Sync
 
 
 data LocationInputPane
@@ -84,11 +85,16 @@ instance Pane WName MyWorkEvent LocationInputPane () where
       let pf = s ^. nLFL
           np form = Location { location = form ^. nlName
                              , locatedOn = form ^. nlDay
+                             , locValid = True  -- assumed
                              , notes = mempty
                             }
       in if maybe False allFieldsValid pf
-         then
-           return $ s & nLFL .~ Nothing & newLocation .~ (np . formState <$> pf)
+         then do let l = np . formState <$> pf
+                 l' <- case l of
+                         Nothing -> return Nothing
+                         Just jl -> do lsy <- syncLocation jl
+                                       return $ Just $ applyLocSync lsy jl
+                 return $ s & nLFL .~ Nothing & newLocation .~ l'
          else
            let badflds = maybe "none"
                          (foldr (\n a -> if T.null a

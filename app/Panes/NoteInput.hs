@@ -28,7 +28,7 @@ import qualified Data.Sequence as Seq
 import           Data.Text ( Text )
 import qualified Data.Text as T
 import           Data.Time.Calendar ( Day )
-import           Data.Time.Clock
+import           Data.Time.Clock ( getCurrentTime, utctDay )
 import qualified Graphics.Vty as Vty
 
 import           Defs

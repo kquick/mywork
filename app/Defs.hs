@@ -46,6 +46,7 @@ data Language = Haskell | Rust | C | CPlusPlus | Python | JavaScript
 
 data Location = Location { location :: Text
                          , locatedOn :: Maybe Day
+                         , locValid :: Bool
                          , notes :: [Note]
                          }
   deriving Generic

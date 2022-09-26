@@ -33,6 +33,7 @@ import qualified Graphics.Vty as Vty
 
 import           Defs
 import           Panes.Common.Inputs
+import           Sync
 
 
 data AddProjPane
@@ -103,13 +104,17 @@ instance Pane WName MyWorkEvent AddProjPane () where
                                           else [ Location
                                                  { location = form ^. npLoc
                                                  , locatedOn = form ^. npLocDate
+                                                 , locValid = True -- assumed
                                                  , notes = mempty
                                                  }
                                                ]
                             }
       in if maybe False allFieldsValid pf
-         then
-           return $ s & nPFL .~ Nothing & newProject .~ (np . formState <$> pf)
+         then do let p0 = np . formState <$> pf
+                 p <- case p0 of
+                        Nothing -> return Nothing
+                        Just jp -> Just <$> syncProject jp
+                 return $ s & nPFL .~ Nothing & newProject .~ p
          else
            let badflds = maybe "none"
                          (foldr (\n a -> if T.null a
