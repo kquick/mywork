@@ -15,7 +15,7 @@ module Panes.AddProj
   )
 where
 
-import           Brick
+import           Brick hiding ( Location )
 import           Brick.Focus
 import           Brick.Forms
 import           Brick.Panes
@@ -28,9 +28,10 @@ import           Data.Maybe ( isJust )
 import qualified Data.Sequence as Seq
 import           Data.Text ( Text )
 import qualified Data.Text as T
+import           Data.Time.Calendar ( Day )
 import qualified Graphics.Vty as Vty
 
-import           Defs hiding (Location)
+import           Defs
 import           Panes.Common.Inputs
 
 
@@ -44,13 +45,15 @@ data NewProj = NewProj { _npName :: Text
                        , _npLangR :: Either Text Language
                        , _npLangT :: Text
                        , _npDesc :: Text
+                       , _npLoc :: Text
+                       , _npLocDate :: Maybe Day
                        }
 
 makeLenses ''NewProj
 
 
 blankNewProj :: NewProj
-blankNewProj = NewProj "" User (Just Personal) "" (Right C) "" ""
+blankNewProj = NewProj "" User (Just Personal) "" (Right C) "" "" "" Nothing
 
 type ProjForm = Form NewProj MyWorkEvent WName
 
@@ -95,7 +98,14 @@ instance Pane WName MyWorkEvent AddProjPane () where
                                 r@(Right _) -> r
                                 Left _ -> Left $ form ^. npLangT
                             , description = form ^. npDesc
-                            , locations = mempty
+                            , locations = if T.null (form ^. npLoc)
+                                          then mempty
+                                          else [ Location
+                                                 { location = form ^. npLoc
+                                                 , locatedOn = form ^. npLocDate
+                                                 , notes = mempty
+                                                 }
+                                               ]
                             }
       in if maybe False allFieldsValid pf
          then
@@ -137,17 +147,20 @@ validateForm inner = do
   s <- inner
   case s ^. nPFL of
     Nothing -> return s
-    Just pf ->
+    Just pf -> do
       let isOK1 = or [ formState pf ^. npGroupG /= Nothing
                      , formState pf ^. npGroupT /= ""
                      ]
-          tgtfld1 = WName "Other Group Text"
-          isOK2 = or [ isRight (formState pf ^. npLangR)
+      let tgtfld1 = WName "Other Group Text"
+      let isOK2 = or [ isRight (formState pf ^. npLangR)
                      , formState pf ^. npLangT /= ""
                      ]
-          tgtfld2 = WName "Other Language Name"
-      in return $ s & nPFL %~ fmap (setFieldValid isOK1 tgtfld1)
-                    & nPFL %~ fmap (setFieldValid isOK2 tgtfld2)
+      let tgtfld2 = WName "Other Language Name"
+      (ltgt, lvalid) <- validateLocationInput True $ formState pf ^. npLoc
+      return $ s
+        & nPFL %~ fmap (setFieldValid isOK1 tgtfld1)
+        & nPFL %~ fmap (setFieldValid isOK2 tgtfld2)
+        & nPFL %~ fmap (setFieldValid lvalid ltgt)
 
 
 initAddProj :: Projects
@@ -165,9 +178,8 @@ initAddProj prjs mbProj ps =
                       $ vLimit 1
                       $ padLeft (Pad (labelWidth + 4))
                       $ str s <+> w
-          labelWidth = 15
-          npForm =
-            newForm
+          labelWidth = 18
+          projFields =
             [ label "Project name" @@=
               let validate = \case
                     [] -> Nothing
@@ -177,7 +189,7 @@ initAddProj prjs mbProj ps =
                               then Nothing  -- invalid
                               else Just nm
               in editField npName (WName "New Project Name") (Just 1)
-                 id validate (txt . head) id
+                 id validate (txt . headText) id
             , label' "Group" @@=
               radioField npGroupG
               [ (Just Personal, (WName "+Prj:Grp:Personal"), "Personal")
@@ -206,6 +218,19 @@ initAddProj prjs mbProj ps =
             , label "Description" @@=
               editTextField npDesc (WName "+Prj:Desc") Nothing
             ]
+          locFields =
+            case mbProj of
+              Nothing ->
+                -- Only query for the initial location if this is a new project;
+                -- do not query for an existing project.
+                [
+                  label "Initial location" @@=
+                  locationInput mempty Nothing True npLoc
+                , label "Location date" @@= mbDateInput npLocDate
+                ]
+              _ -> []
+          npForm =
+            newForm (projFields <> locFields)
             (case mbProj of
                Nothing -> blankNewProj
                Just p -> NewProj { _npName = name p
@@ -222,6 +247,8 @@ initAddProj prjs mbProj ps =
                                                 Right _ -> ""
                                                 Left t -> t
                                  , _npDesc = description p
+                                 , _npLoc = ""
+                                 , _npLocDate = Nothing
                                  }
             )
       in NP { nPF = Just npForm
