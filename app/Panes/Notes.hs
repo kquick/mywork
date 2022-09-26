@@ -20,7 +20,9 @@ import           Panes.Common.Inputs
 
 
 instance Pane WName MyWorkEvent Note (Maybe Location) where
-  data (PaneState Note MyWorkEvent) = N { nL :: List WName Note }
+  data (PaneState Note MyWorkEvent) = N { nL :: List WName Note
+                                        , nLoc :: Maybe Location
+                                        }
   type (InitConstraints Note s) = ( HasLocation s
                                   , HasProjects s
                                   , HasSelection s
@@ -29,12 +31,12 @@ instance Pane WName MyWorkEvent Note (Maybe Location) where
                                         , HasLocation s
                                         )
   initPaneState gs =
-    let l = N (list (WName "Notes:List") mempty 1)
+    let l = N (list (WName "Notes:List") mempty 1) Nothing
     in flip updatePane l $ join $ snd <$> getCurrentLocation gs
   updatePane mbl ps =
     case mbl of
-      Just l -> N $ listReplace (V.fromList $ notes l) (Just 0) (nL ps)
-      Nothing -> N $ listReplace mempty Nothing (nL ps)
+      Just l -> N (listReplace (V.fromList $ notes l) (Just 0) (nL ps)) mbl
+      Nothing -> N (listReplace mempty Nothing (nL ps)) mbl
   drawPane ps gs =
     let isFcsd = gs^.getFocus.to focused == Just WNotes
         rndr nt = str (show (notedOn nt) <> " -- ")
@@ -60,4 +62,7 @@ nList f ps = (\n -> ps { nL = n }) <$> f (nL ps)
 
 
 instance HasNote (PaneState Note MyWorkEvent) where
-  selectedNote = fmap (noteTitle . snd) . listSelectedElement . nL
+  selectedNote ps = do
+    curr <- listSelectedElement $ nL ps
+    locn <- nLoc ps
+    return ( location locn, noteTitle $ snd curr )

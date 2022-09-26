@@ -15,6 +15,7 @@ import           Brick hiding (Location)
 import           Brick.Focus
 import           Brick.Panes
 import           Control.Lens
+import           Control.Monad ( guard )
 import qualified Data.List as DL
 import           Data.Text ( Text, pack, unpack )
 import qualified Data.Text as T
@@ -135,7 +136,8 @@ instance ( PanelOps Location WName MyWorkEvent panes MyWorkCore
   selectedLocation = selectedLocation . view (onPane @Location)
 
 class HasNote s where
-  selectedNote :: s -> Maybe Text
+  -- | Returns the currently selected location and note
+  selectedNote :: s -> Maybe (Text, Text)
 
 instance ( PanelOps Note WName MyWorkEvent panes MyWorkCore
          , HasNote (PaneState Note MyWorkEvent)
@@ -156,7 +158,8 @@ getCurrentLocation s =
 
 
 getCurrentNote :: HasNote s => s -> Location -> Maybe Note
-getCurrentNote s l = do n <- selectedNote s
+getCurrentNote s l = do (l',n) <- selectedNote s
+                        guard (location l == l')
                         DL.find ((== n) . noteTitle) (notes l)
 
 isLocationLocal :: Location -> Bool
