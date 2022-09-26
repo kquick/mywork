@@ -33,6 +33,7 @@ import           Control.Monad.IO.Class ( MonadIO, liftIO )
 import           Data.Aeson ( ToJSON, FromJSON, eitherDecode, encode
                             , parseJSON, withObject, (.:), (.:?), (.!=) )
 import qualified Data.ByteString.Lazy as BS
+import           Data.Maybe ( catMaybes )
 import           Data.Maybe ( isJust )
 import qualified Data.Sequence as Seq
 import           Data.Text ( Text )
@@ -59,6 +60,7 @@ instance Pane WName MyWorkEvent FileMgrPane FileMgrOps where
          -- ^ A Nothing value indicates the modal is not currently active
        , myProjects :: Projects
          -- ^ Current loaded set of projects
+       , myProjFile :: FilePath
        , newProjects :: Either Confirm Bool
          -- ^ True when myProjects has been updated; clear this via updatePane
        , unsavedChanges :: Bool
@@ -68,20 +70,29 @@ instance Pane WName MyWorkEvent FileMgrPane FileMgrOps where
        }
   type (DrawConstraints FileMgrPane s WName) = ( HasFocus s WName )
   type (EventConstraints FileMgrPane e) = ( HasFocus e WName )
-  initPaneState _ = FB Nothing (Projects mempty) (Right False) False ""
+  initPaneState _ = FB Nothing (Projects mempty) "" (Right False) False ""
   drawPane ps gs = drawFB ps gs <$> fB ps
   focusable _ ps = case fB ps of
                      Nothing -> mempty
-                     Just _ -> Seq.fromList [ WName "FMgr:Browser"
-                                            , WName "FMgr:SaveBtn"
-                                            ]
+                     Just _ -> Seq.fromList $ catMaybes
+                               [
+                                 Just $ WName "FMgr:Browser"
+                               , if null $ myProjFile ps then Nothing
+                                 else Just $ WName "FMgr:SaveBtn"
+                               , if isDirSelected ps
+                                 then Nothing
+                                 else Just $ WName "FMgr:SaveAsBtn"
+                               ]
   handlePaneEvent bs ev ts =
     let isSearching = maybe False fileBrowserIsSearching (ts^.fBrowser)
     in case ev of
       Vty.EvKey Vty.KEsc [] | not isSearching -> return $ ts & fBrowser .~ Nothing
       _ -> case bs^.getFocus of
              Focused (Just (WName "FMgr:Browser")) -> handleFileLoadEvent ev ts
-             Focused (Just (WName "FMgr:SaveBtn")) -> handleFileSaveEvent ev ts
+             Focused (Just (WName "FMgr:SaveAsBtn")) ->
+               handleFileSaveEvent "" ev ts
+             Focused (Just (WName "FMgr:SaveBtn")) ->
+               handleFileSaveEvent (myProjFile ts) ev ts
              _ -> return ts
   updatePane = \case
     AckNewProjects -> \ps -> ps { newProjects = Right False }
@@ -117,6 +128,9 @@ fBrowser f ps = (\n -> ps { fB = n }) <$> f (fB ps)
 myProjectsL :: Lens' (PaneState FileMgrPane MyWorkEvent) Projects
 myProjectsL f wc = (\n -> wc { myProjects = n }) <$> f (myProjects wc)
 
+myProjFileL :: Lens' (PaneState FileMgrPane MyWorkEvent) FilePath
+myProjFileL f wc = (\n -> wc { myProjFile = n }) <$> f (myProjFile wc)
+
 newProjectsL :: Lens' (PaneState FileMgrPane MyWorkEvent) (Either Confirm Bool)
 newProjectsL f wc = (\n -> wc { newProjects = n }) <$> f (newProjects wc)
 
@@ -128,6 +142,18 @@ errMsgL f wc = (\n -> wc { errMsg = n }) <$> f (errMsg wc)
 
 isFileMgrActive :: PaneState FileMgrPane MyWorkEvent -> Bool
 isFileMgrActive = isJust . fB
+
+isDirSelected :: PaneState FileMgrPane MyWorkEvent -> Bool
+isDirSelected ps =
+  case fileBrowserCursor =<< fB ps of
+    Just fi ->
+      case fileStatusFileType <$> fileInfoFileStatus fi of
+        Right (Just Directory) -> True
+        Right (Just SymbolicLink) -> case fileInfoLinkTargetType fi of
+                                       Just Directory -> True
+                                       _ -> False
+        _ -> False
+    Nothing -> False
 
 
 instance ( PanelOps FileMgrPane WName MyWorkEvent panes MyWorkCore
@@ -146,20 +172,22 @@ drawFB :: DrawConstraints FileMgrPane drawstate WName
 drawFB ps ds b =
   let width = 70
       fcsd = ds^.getFocus.to focused
+      browserFocused = fcsd == Just (WName "FMgr:Browser")
+      isDir = isDirSelected ps
       browserPane fb =
-        let hasFocus = fcsd == Just (WName "FMgr:Browser")
-        in vLimitPercent 55 $ hLimitPercent width
-           $ titledB hasFocus "Choose a file"
-           $ renderFileBrowser hasFocus fb
+        vLimitPercent 55 $ hLimitPercent width
+        $ titledB browserFocused "Choose a file"
+        $ renderFileBrowser browserFocused fb
       helpPane =
-        padTop (BC.Pad 1) $ hLimitPercent width $ vBox
-        [ hCenter $ txt "Up/Down: select"
-        , hCenter $ txt "/: search, Ctrl-C or Esc: cancel search"
-        , hCenter $ txt "Enter: change directory or select file"
-        , hCenter $ txt "Space: change directory"
-        , hCenter $ txt "TAB: select Save option"
-        , hCenter $ txt "ESC: quit"
-        ]
+        let esact = if browserFocused
+                    then if isDir then "change directory" else "load file"
+                    else "save"
+        in padTop (BC.Pad 1) $ hLimitPercent width $ vBox
+           [ hCenter $ txt "/: search, Ctrl-C or Esc: cancel search"
+           , hCenter $ txt $ "Enter/Space: " <> esact
+           , hCenter $ txt "TAB: select Save/Load options"
+           , hCenter $ txt "ESC: quit"
+           ]
       errDisplay fb = case fileBrowserException fb of
                         Nothing -> if null $ errMsg ps
                                    then emptyWidget
@@ -170,10 +198,26 @@ drawFB ps ds b =
                                   $ withDefAttr a'Error
                                   $ strWrap
                                   $ X.displayException e
-      savePane = (if fcsd == Just (WName "FMgr:SaveBtn")
-                  then withAttr a'Selected
-                  else id)
-                 $ str "[SAVE]"
+      savePane = padTop (Pad 1)
+                 $ vBox
+                 [
+                   let a = if fcsd == Just (WName "FMgr:SaveBtn")
+                           then withAttr a'Selected
+                           else if null f then withAttr a'Disabled else id
+                       f = myProjFile ps
+                       btxt = if null f then " " else "[SAVE] " <> f
+                   in a $ str btxt
+                 , if isDir
+                   then withAttr a'Disabled $ str "[SAVE]"
+                   else let a = if fcsd == Just (WName "FMgr:SaveAsBtn")
+                                then withAttr a'Selected
+                                else id
+                            btxt =
+                              case fileBrowserCursor =<< fB ps of
+                                Just fi -> "[SAVE] " <> fileInfoFilePath fi
+                                Nothing -> "[SAVE]"
+                        in a $ str btxt
+                 ]
   in centerLayer (browserPane b <=> errDisplay b <=> savePane <=> helpPane)
 
 
@@ -206,27 +250,31 @@ handleFileLoadEvent ev ts =
     Nothing -> return ts  -- shouldn't happen
 
 
-handleFileSaveEvent :: Vty.Event
+handleFileSaveEvent :: FilePath
+                    -> Vty.Event
                     -> PaneState FileMgrPane MyWorkEvent
                     -> EventM WName es (PaneState FileMgrPane MyWorkEvent)
-handleFileSaveEvent ev ts =
-  case fileBrowserCursor =<< ts^.fBrowser of
-    Nothing -> return ts
-    Just f ->
-      case ev of
-        Vty.EvKey Vty.KEnter [] -> doSave f
-        Vty.EvKey (Vty.KChar ' ') [] -> doSave f
-        _ -> return ts
+handleFileSaveEvent fpth ev ts =
+  if null fpth
+  then case fileBrowserCursor =<< ts^.fBrowser of
+         Nothing -> return ts
+         Just f ->
+           case ev of
+             Vty.EvKey Vty.KEnter [] -> doSave f
+             Vty.EvKey (Vty.KChar ' ') [] -> doSave f
+             _ -> return ts
+  else doSave' fpth
   where
-    doSave f =
-      let fp = fileInfoFilePath f
-      in liftIO (D.doesDirectoryExist fp) >>= \case
+    doSave f = doSave' $ fileInfoFilePath f
+    doSave' fp =
+      liftIO (D.doesDirectoryExist fp) >>= \case
         True ->
           return $ ts
           & errMsgL .~ "Cannot save to a directory: please select a file"
         False -> do liftIO $ BS.writeFile fp (encode $ myProjects ts)
                     return $ ts
                       & fBrowser .~ Nothing
+                      & myProjFileL .~ fp
                       & unsavedChangesL .~ False
 
 
@@ -297,6 +345,7 @@ fileMgrReadProjectsFile fp ps = readProjectsFile fp >>= \case
   Left er -> return $ ps & errMsgL .~ er
   Right prjs -> return $ ps
                 & myProjectsL .~ prjs
+                & myProjFileL .~ fp
                 & newProjectsL .~ Right True
                 & unsavedChangesL .~ False
 
