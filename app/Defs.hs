@@ -217,9 +217,11 @@ data Confirm = ConfirmProjectDelete Text -- project name
 instance Show Confirm where
   show = \case
     ConfirmProjectDelete pname ->
-      "Really delete project " <> show pname <> " and all associated locations and notes?"
+      "Are you sure you want to delete project " <> show pname
+      <> " and all associated locations and notes?"
     ConfirmLocationDelete pname locn ->
-      "Really remove location " <> show locn <> " from project " <> show pname <> "?"
+      "Are you sure you want to remove location " <> show locn
+      <> " from project " <> show pname <> "?"
     ConfirmNoteDelete pname locn nt ->
       "Remove the following note from project " <> show pname
       <> ", location " <> show locn <> "?\n\n  " <> show nt
