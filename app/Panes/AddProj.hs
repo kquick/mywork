@@ -72,7 +72,7 @@ instance Pane WName MyWorkEvent AddProjPane () where
     . hLimitPercent 65
     . (\f -> vBox [ renderForm f
                   , padBottom (Pad 1) $ withAttr a'Error
-                    $ maybe emptyWidget txt (nErr ps)
+                    $ maybe (txt " ") txt (nErr ps)
                   , emptyWidget
                   , vLimit 1 (fill ' ' <+> str "Ctrl-D = accept"
                               <+> fill ' ' <+> str "ESC = abort"
