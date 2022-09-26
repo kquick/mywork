@@ -177,7 +177,13 @@ handleMyWorkEvent = \case
     --   * CTRL-q quits
     --   * CTRL-l refreshes vty
     --   * ESC dismisses any modal window
-  VtyEvent (Vty.EvKey (Vty.KChar 'q') [Vty.MCtrl]) -> halt
+  VtyEvent (Vty.EvKey (Vty.KChar 'q') [Vty.MCtrl]) -> do
+    s <- get
+    if s ^. onPane @FileMgrPane . to unsavedChanges
+      then modify ( (focusRingUpdate myWorkFocusL)
+                    . (onPane @Confirm %~ showConfirmation ConfirmQuit)
+                  )
+      else halt
   VtyEvent (Vty.EvKey (Vty.KChar 'l') [Vty.MCtrl]) ->
     liftIO . Vty.refresh =<< getVtyHandle
   -- Other application global events (see Pane.Operations)
@@ -337,6 +343,7 @@ handleConfirmation innerHandler = do
                 s' <- s & onPane @FileMgrPane %%~ fileMgrReadProjectsFile fp
                 put s'
                 return True
+              Just ConfirmQuit -> halt >> return True
     else
     -- Focus ring update is needed if indicated by the lower level handler or if
     -- the confirmation pane is just activated or just deactivated

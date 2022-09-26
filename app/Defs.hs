@@ -210,6 +210,7 @@ data Confirm = ConfirmProjectDelete Text -- project name
              | ConfirmLocationDelete Text Text -- project name, location
              | ConfirmNoteDelete Text Text Text -- project name, location, noteTitle
              | ConfirmLoad String -- filepath
+             | ConfirmQuit
 
 -- The Show instance for Confirm is the message presented to the user in the
 -- confirmation window.
@@ -224,6 +225,7 @@ instance Show Confirm where
       <> ", location " <> show locn <> "?\n\n  " <> show nt
     ConfirmLoad fp ->
       "Discard local changes and load projects from " <> show fp <> "?"
+    ConfirmQuit -> "There are unsaved changes.  Are you sure you want to quit?"
 
 
 ----------------------------------------------------------------------
