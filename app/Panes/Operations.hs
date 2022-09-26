@@ -9,6 +9,7 @@ module Panes.Operations
 where
 
 import           Brick
+import Brick.Widgets.Dialog ( buttonAttr )
 import           Brick.Panes
 import qualified Data.List as DL
 import           Data.Maybe ( catMaybes )
@@ -35,16 +36,18 @@ instance Pane WName MyWorkEvent OperationsPane () where
                       ProjectOp -> "Project"
                       LocationOp -> "Location"
                       NoteOp -> "Note"
-        ops = DL.intersperse (fill ' ') $ catMaybes
+        ops = DL.intersperse (fill ' ')
+              $ withAttr buttonAttr
+              <$> catMaybes
               [
                 Just $ str $ "F2: Add " <> addWhat o
               , if o == maxBound
                 then Nothing
-                else Just $ projInd $ str $ "F3: Add " <> addWhat (succ o)
+                else Just $ projInd $ str $ "F3 Add " <> addWhat (succ o)
               -- , projInd $ str "F4: Add Note"
-              , Just $ projInd $ str "C-e: Edit"
-              , Just $ projInd $ str "Del: Delete"
-              , Just $ str "F9: Load/Save"
-              , Just $ str $ "C-q: Quit"
+              , Just $ projInd $ str "C-e Edit"
+              , Just $ projInd $ str "Del Delete"
+              , Just $ str "F9 Load/Save"
+              , Just $ str $ "C-q Quit"
               ]
     in Just $ vLimit 1 $ str " " <+> hBox ops <+> str " "

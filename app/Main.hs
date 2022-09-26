@@ -111,8 +111,8 @@ myattrs = attrMap defAttr
           , (invalidFormInputAttr, fg red `withStyle` bold)
           , (focusedFormInputAttr, defAttr `withStyle` reverseVideo)
 
-          , (buttonAttr, defAttr `withStyle` dim)
-          , (buttonSelectedAttr, black `on` green `withStyle` bold)
+          , (buttonAttr, black `on` (rgbColor 100 100 (100::Int)))
+          , (buttonSelectedAttr, black `on` green)
 
           , (a'RoleAuthor, fg $ rgbColor 0 255 (0::Int))
           , (a'RoleMaintainer, fg $ rgbColor 0 200 (30::Int))
