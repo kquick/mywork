@@ -23,11 +23,13 @@ import           Defs
 
 instance Pane WName MyWorkEvent Location (Maybe Project) where
   data (PaneState Location MyWorkEvent) =
-    L { lL :: List WName (Text, Bool, Maybe Day) }
+    L { lL :: List WName (Text, Bool, Maybe Day)
+      , lP :: Maybe Project
+      }
   type (InitConstraints Location s) = ( HasSelection s, HasProjects s )
   type (DrawConstraints Location s WName) = ( HasFocus s WName, HasSelection s )
   initPaneState gs =
-    let l = L (list (WName "Loc:LList") mempty 1)
+    let l = L (list (WName "Loc:LList") mempty 1) Nothing
         update x = do p <- selectedProject gs
                       prj <- DL.find ((== p) . name)
                                      (projects $ snd $ getProjects gs)
@@ -50,16 +52,23 @@ instance Pane WName MyWorkEvent Location (Maybe Project) where
                    $ not $ null $ listElements $ lL ps
   handlePaneEvent _ ev = lList %%~ \w -> nestEventM' w (handleListEvent ev)
   updatePane = \case
-    Nothing -> lList %~ listReplace mempty Nothing
+    Nothing -> (lList %~ listReplace mempty Nothing) . (lProj .~ Nothing)
     Just prj -> let ents = [ (location l, locValid l, locatedOn l)
                            | l <- locations prj ]
                     np = if null ents then Nothing else Just 0
-                in lList %~ listReplace (V.fromList ents) np
+                in (lList %~ listReplace (V.fromList ents) np)
+                   . (lProj .~ Just prj)
 
 
 lList :: Lens' (PaneState Location MyWorkEvent) (List WName (Text, Bool, Maybe Day))
 lList f ps = (\n -> ps { lL = n }) <$> f (lL ps)
 
+lProj :: Lens' (PaneState Location MyWorkEvent) (Maybe Project)
+lProj f ps = (\n -> ps { lP = n }) <$> f (lP ps)
+
 
 instance HasLocation (PaneState Location MyWorkEvent) where
-  selectedLocation = fmap (\(l,_,_) -> l) . fmap snd . listSelectedElement . lL
+  selectedLocation ps = do
+    prj <- lP ps
+    curr <- listSelectedElement $ lL ps
+    return ( name prj, (\(l,_,_) -> l) $ snd curr )

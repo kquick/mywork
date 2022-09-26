@@ -415,9 +415,9 @@ handleLocationChange :: EventM WName MyWorkState (PanelTransition, Maybe Project
                      -> EventM WName MyWorkState
                         (PanelTransition, Maybe Project, Maybe Location)
 handleLocationChange innerHandler = do
-  loc0 <- gets selectedLocation
+  loc0 <- gets (fmap snd . selectedLocation)
   (transition, mbPrj) <- innerHandler
-  loc1 <- gets selectedLocation
+  loc1 <- gets (fmap snd . selectedLocation)
   let mustUpdate = loc1 /= loc0
   case mbPrj of
     Nothing -> return (transition, Nothing, Nothing)

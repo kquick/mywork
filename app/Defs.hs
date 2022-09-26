@@ -125,7 +125,8 @@ instance ( PanelOps Projects WName MyWorkEvent panes MyWorkCore
   selectedProject = selectedProject . view (onPane @Projects)
 
 class HasLocation s where
-  selectedLocation :: s -> Maybe Text
+  -- | Returns the currently selected project and location
+  selectedLocation :: s -> Maybe (Text, Text)
 
 instance ( PanelOps Location WName MyWorkEvent panes MyWorkCore
          , HasLocation (PaneState Location MyWorkEvent)
@@ -147,12 +148,11 @@ getCurrentLocation :: HasSelection s
                    => HasLocation s
                    => HasProjects s
                    => s -> Maybe (Project, Maybe Location)
-getCurrentLocation s = do p <- selectedProject s
-                          let (_,prjs) = getProjects s
-                          prj <- DL.find ((== p) . name) (projects prjs)
-                          return  (prj
-                                 , do l <- selectedLocation s
-                                      DL.find ((== l) . location) (locations prj))
+getCurrentLocation s =
+  do (p,l) <- selectedLocation s
+     let (_,prjs) = getProjects s
+     prj <- DL.find ((== p) . name) (projects prjs)
+     return (prj, DL.find ((== l) . location) (locations prj))
 
 
 getCurrentNote :: HasNote s => s -> Location -> Maybe Note
@@ -199,11 +199,12 @@ opOnSelection :: HasSelection s
               => HasLocation s
               => HasFocus s WName
               => s -> (OpOn, Maybe Text)
-opOnSelection s = case s ^. getFocus of
-                    Focused (Just WProjList) -> (ProjectOp, selectedProject s)
-                    Focused (Just WLocations) -> (LocationOp, selectedLocation s)
-                    Focused (Just WNotes) -> (NoteOp, Nothing) -- TODO: selectedNote
-                    _ -> (ProjectOp, Nothing)
+opOnSelection s =
+  case s ^. getFocus of
+    Focused (Just WProjList) -> (ProjectOp, selectedProject s)
+    Focused (Just WLocations) -> (LocationOp, snd <$> selectedLocation s)
+    Focused (Just WNotes) -> (NoteOp, Nothing) -- TODO: selectedNote
+    _ -> (ProjectOp, Nothing)
 
 
 data Confirm = ConfirmProjectDelete Text -- project name
