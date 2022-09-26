@@ -18,6 +18,7 @@ module Panes.FileMgr
   , isFileMgrActive
   , fileMgrReadProjectsFile
   , unsavedChanges
+  , fileMgrNotices
   )
 where
 
@@ -67,10 +68,12 @@ instance Pane WName MyWorkEvent FileMgrPane FileMgrOps where
          -- ^ True when myProjects has been changed since the last load
        , errMsg :: String
          -- ^ Internal error message to display in the FileMgr modal
+       , fmgrMsgs :: [ Widget WName ]
+         -- ^ Messages to display when the FileMgr modal exits
        }
   type (DrawConstraints FileMgrPane s WName) = ( HasFocus s WName )
   type (EventConstraints FileMgrPane e) = ( HasFocus e WName )
-  initPaneState _ = FB Nothing (Projects mempty) "" (Right False) False ""
+  initPaneState _ = FB Nothing (Projects mempty) "" (Right False) False "" mempty
   drawPane ps gs = drawFB ps gs <$> fB ps
   focusable _ ps = case fB ps of
                      Nothing -> mempty
@@ -95,7 +98,7 @@ instance Pane WName MyWorkEvent FileMgrPane FileMgrOps where
                handleFileSaveEvent (myProjFile ts) ev ts
              _ -> return ts
   updatePane = \case
-    AckNewProjects -> \ps -> ps { newProjects = Right False }
+    AckNewProjects -> \ps -> ps { newProjects = Right False, fmgrMsgs = mempty }
     UpdProject mbOldNm prj ->
       (myProjectsL %~ updateProject mbOldNm prj)
       . (newProjectsL .~ Right True)
@@ -140,8 +143,14 @@ unsavedChangesL = lens unsavedChanges (\wc n -> wc { unsavedChanges = n })
 errMsgL :: Lens' (PaneState FileMgrPane MyWorkEvent) String
 errMsgL f wc = (\n -> wc { errMsg = n }) <$> f (errMsg wc)
 
+exitMsgsL :: Lens' (PaneState FileMgrPane MyWorkEvent) [ Widget WName ]
+exitMsgsL f wc = (\n -> wc { fmgrMsgs = n }) <$> f (fmgrMsgs wc)
+
 isFileMgrActive :: PaneState FileMgrPane MyWorkEvent -> Bool
 isFileMgrActive = isJust . fB
+
+fileMgrNotices :: Lens' (PaneState FileMgrPane MyWorkEvent) [ Widget WName ]
+fileMgrNotices = exitMsgsL
 
 isDirSelected :: PaneState FileMgrPane MyWorkEvent -> Bool
 isDirSelected ps =
@@ -276,6 +285,7 @@ handleFileSaveEvent fpth ev ts =
                       & fBrowser .~ Nothing
                       & myProjFileL .~ fp
                       & unsavedChangesL .~ False
+                      & exitMsgsL <>~ [ withAttr a'Notice $ str $ "Wrote " <> fp ]
 
 
 instance ToJSON Projects
@@ -348,6 +358,7 @@ fileMgrReadProjectsFile fp ps = readProjectsFile fp >>= \case
                 & myProjFileL .~ fp
                 & newProjectsL .~ Right True
                 & unsavedChangesL .~ False
+                & exitMsgsL <>~ [ withAttr a'Notice $ str $ "Loaded " <> fp ]
 
 
 -- | Called to display the FileMgr modal pane to allow the user to Load or Save.

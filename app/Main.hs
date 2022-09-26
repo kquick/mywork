@@ -295,6 +295,12 @@ handleMyWorkEvent = \case
            s <- get
            (t,s') <- handleFocusAndPanelEvents myWorkFocusL s ev
            put s'
+           when (exitedModal @FileMgrPane t s') $
+             let fmn = (panelState @FileMgrPane s') ^. fileMgrNotices
+             in modify
+                (   (onPane @FileMgrPane . fileMgrNotices .~ mempty)
+                  . (onBaseState . messagesL <>~ fmn)
+                )
            let postop = do handleConfirmation
                            handleNewProject
                            prjs <- handleNewProjects
