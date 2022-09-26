@@ -55,7 +55,7 @@ type MyWorkState = Panel WName MyWorkEvent MyWorkCore
                     , Location
                     , Projects
                     , FileMgrPane
-                    , ConfirmationPane
+                    , Confirm
                     , HelpPane
                     ]
 
@@ -160,7 +160,7 @@ drawMyWork mws =
                            , panelDraw @AddProjPane mws
                            , panelDraw @LocationInputPane mws
                            , panelDraw @NoteInputPane mws
-                           , panelDraw @ConfirmationPane mws
+                           , panelDraw @Confirm mws
                            , panelDraw @HelpPane mws
                            ]
                  <> mainPanes
@@ -248,7 +248,7 @@ handleMyWorkEvent = \case
         case getCurrentLocation s of
           Just (p, _) ->
             put $ s
-            & onPane @ConfirmationPane %~
+            & onPane @Confirm %~
                        showConfirmation (ConfirmProjectDelete (name p))
             & focusRingUpdate myWorkFocusL
           _ -> return ()
@@ -256,7 +256,7 @@ handleMyWorkEvent = \case
         case getCurrentLocation s of
           Just (p, Just l) ->
             put $ s
-            & onPane @ConfirmationPane %~
+            & onPane @Confirm %~
                  showConfirmation (ConfirmLocationDelete (name p) (location l))
             & focusRingUpdate myWorkFocusL
           _ -> return ()
@@ -266,7 +266,7 @@ handleMyWorkEvent = \case
             case getCurrentNote s l of
               Just nt ->
                 let msg = ConfirmNoteDelete (name p) (location l) (noteTitle nt)
-                in put $ s & onPane @ConfirmationPane %~ showConfirmation msg
+                in put $ s & onPane @Confirm %~ showConfirmation msg
                            & focusRingUpdate myWorkFocusL
               _ -> return ()
           _ -> return ()
@@ -312,15 +312,15 @@ addNote s =
 handleConfirmation :: EventM WName MyWorkState Bool
                    -> EventM WName MyWorkState Bool
 handleConfirmation innerHandler = do
-  let confirmOp :: (PaneState ConfirmationPane MyWorkEvent -> a)
+  let confirmOp :: (PaneState Confirm MyWorkEvent -> a)
                 -> EventM WName MyWorkState a
-      confirmOp o = gets (view $ onPane @ConfirmationPane . to o)
+      confirmOp o = gets (view $ onPane @Confirm . to o)
   wasActive <- confirmOp isConfirmationActive
   forceChange <- innerHandler
   nowActive <- confirmOp isConfirmationActive
   if (wasActive && not nowActive)
     then do (ps, confirmed) <- confirmOp getConfirmedAction
-            modify $ onPane @ConfirmationPane .~ ps
+            modify $ onPane @Confirm .~ ps
             case confirmed of
               Nothing -> return forceChange
               Just (ConfirmProjectDelete pname) -> do
@@ -332,7 +332,15 @@ handleConfirmation innerHandler = do
               Just (ConfirmNoteDelete pname locn nt) -> do
                 modify (onPane @FileMgrPane %~ updatePane (DelNote pname locn nt))
                 return True
-    else return forceChange
+              Just (ConfirmLoad fp) -> do
+                s <- get
+                s' <- s & onPane @FileMgrPane %%~ fileMgrReadProjectsFile fp
+                put s'
+                return True
+    else
+    -- Focus ring update is needed if indicated by the lower level handler or if
+    -- the confirmation pane is just activated or just deactivated
+    return (forceChange || wasActive /= not nowActive)
 
 handleNewProject :: EventM WName MyWorkState Bool
                  -> EventM WName MyWorkState Bool
@@ -357,12 +365,22 @@ handleNewProjects :: EventM WName MyWorkState Bool
 handleNewProjects innerHandler = do
   forceChange <- innerHandler
   (new,prjs) <- gets getProjects
-  let mustUpdate = forceChange || new
-  when mustUpdate $
-    modify (   (onPane @Projects %~ updatePane prjs)
-             . (onPane @FileMgrPane %~ updatePane AckNewProjects)
-           )
-  return (mustUpdate, prjs)
+  change <- case new of
+    Left cnfrm -> do modify $ \s ->
+                       if not $ s ^. onPane @Confirm . to isConfirmationActive
+                       then s
+                            & onPane @Confirm %~ showConfirmation cnfrm
+                            & onPane @FileMgrPane %~ updatePane AckNewProjects
+                            & focusRingUpdate myWorkFocusL
+                       else s
+                     return False
+    Right True ->
+      do modify (   (onPane @Projects %~ updatePane prjs)
+                  . (onPane @FileMgrPane %~ updatePane AckNewProjects)
+                )
+         return True
+    Right False -> return False
+  return (forceChange || change, prjs)  -- KWQ: viability of prjs if pending confirmation?
 
 handleProjectChange :: EventM WName MyWorkState (Bool, Projects)
                     -> EventM WName MyWorkState (Bool, Maybe Project)

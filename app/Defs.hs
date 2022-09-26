@@ -104,7 +104,7 @@ type MyWorkEvent = ()  -- No app-specific event for this simple app
 
 
 class HasProjects s where
-  getProjects :: s -> (Bool, Projects)
+  getProjects :: s -> (Either Confirm Bool, Projects)
 
 
 instance HasFocus MyWorkCore WName where
@@ -209,6 +209,7 @@ opOnSelection s = case s ^. getFocus of
 data Confirm = ConfirmProjectDelete Text -- project name
              | ConfirmLocationDelete Text Text -- project name, location
              | ConfirmNoteDelete Text Text Text -- project name, location, noteTitle
+             | ConfirmLoad String -- filepath
 
 -- The Show instance for Confirm is the message presented to the user in the
 -- confirmation window.
@@ -219,7 +220,10 @@ instance Show Confirm where
     ConfirmLocationDelete pname locn ->
       "Really remove location " <> show locn <> " from project " <> show pname <> "?"
     ConfirmNoteDelete pname locn nt ->
-      "Remove the following note from project " <> show pname <> ", location " <> show locn <> "?\n\n  " <> show nt
+      "Remove the following note from project " <> show pname
+      <> ", location " <> show locn <> "?\n\n  " <> show nt
+    ConfirmLoad fp ->
+      "Discard local changes and load projects from " <> show fp <> "?"
 
 
 ----------------------------------------------------------------------

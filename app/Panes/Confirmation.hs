@@ -6,11 +6,11 @@
 {-# LANGUAGE TypeApplications #-}
 {-# LANGUAGE TypeFamilies #-}
 {-# LANGUAGE TypeSynonymInstances #-}
+{-# OPTIONS_GHC -fno-warn-orphans #-}
 
 module Panes.Confirmation
   (
-    ConfirmationPane
-  , isConfirmationActive
+    isConfirmationActive
   , getConfirmedAction
   , showConfirmation
   )
@@ -27,13 +27,11 @@ import qualified Graphics.Vty as Vty
 import           Defs
 
 
-data ConfirmationPane
-
-instance Pane WName MyWorkEvent ConfirmationPane (Maybe Confirm) where
-  data (PaneState ConfirmationPane MyWorkEvent) = Cf { cD :: Maybe (Dialog Bool)
-                                                     , cW :: Maybe Confirm
-                                                     }
-  type (DrawConstraints ConfirmationPane s WName) = ( HasFocus s WName )
+instance Pane WName MyWorkEvent Confirm (Maybe Confirm) where
+  data (PaneState Confirm MyWorkEvent) = Cf { cD :: Maybe (Dialog Bool)
+                                            , cW :: Maybe Confirm
+                                            }
+  type (DrawConstraints Confirm s WName) = ( HasFocus s WName )
   initPaneState _ = Cf Nothing Nothing
   drawPane ps _ =
     let draw d = renderDialog d ( padBottom (Pad 1)
@@ -55,22 +53,23 @@ instance Pane WName MyWorkEvent ConfirmationPane (Maybe Confirm) where
   updatePane mbCnf ps = ps { cW = mbCnf }
 
 
-cDL :: Lens' (PaneState ConfirmationPane MyWorkEvent) (Maybe (Dialog Bool))
+cDL :: Lens' (PaneState Confirm MyWorkEvent) (Maybe (Dialog Bool))
 cDL = lens cD (\s v -> s { cD = v })
 
 
 -- | Returns true if the Confirmation modal is active and being displayed.  This
 -- is primarily used for detecting the transition from displayed -> not displayed
 -- which indicates the user made a decision.
-isConfirmationActive :: PaneState ConfirmationPane MyWorkEvent -> Bool
+isConfirmationActive :: PaneState Confirm MyWorkEvent -> Bool
 isConfirmationActive = isJust . cD
 
 
--- | Retrieve the confirmation, if there is one.  Verifies that the state is
--- valid for providing confirmation.  The confirmation status is cleared by this
--- action in the returned pane state.
-getConfirmedAction :: PaneState ConfirmationPane MyWorkEvent
-                   -> (PaneState ConfirmationPane MyWorkEvent, Maybe Confirm)
+-- | Retrieve the confirmation, if there is one.
+--
+-- Verifies that the state is valid for providing confirmation.  The confirmation
+-- status is cleared by this action in the returned pane state.
+getConfirmedAction :: PaneState Confirm MyWorkEvent
+                   -> (PaneState Confirm MyWorkEvent, Maybe Confirm)
 getConfirmedAction ps = do
   case (cD ps, cW ps) of
     (Nothing, Just cnf) -> (ps { cW = Nothing }, Just cnf)
@@ -80,8 +79,8 @@ getConfirmedAction ps = do
 -- | Activate the confirmation modal with the provided Confirm message and
 -- action.
 showConfirmation :: Confirm
-                 -> PaneState ConfirmationPane MyWorkEvent
-                 -> PaneState ConfirmationPane MyWorkEvent
+                 -> PaneState Confirm MyWorkEvent
+                 -> PaneState Confirm MyWorkEvent
 showConfirmation for _ =
   let d = dialog Nothing -- (Just $ show for)
           (Just (1, [ ("OK", True), ("Cancel", False) ]))

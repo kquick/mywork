@@ -16,6 +16,8 @@ module Panes.FileMgr
   , initFileMgr
   , showFileMgr
   , isFileMgrActive
+  , fileMgrReadProjectsFile
+  , unsavedChanges
   )
 where
 
@@ -57,13 +59,16 @@ instance Pane WName MyWorkEvent FileMgrPane FileMgrOps where
          -- ^ A Nothing value indicates the modal is not currently active
        , myProjects :: Projects
          -- ^ Current loaded set of projects
-       , newProjects :: Bool
+       , newProjects :: Either Confirm Bool
          -- ^ True when myProjects has been updated; clear this via updatePane
+       , unsavedChanges :: Bool
+         -- ^ True when myProjects has been changed since the last load
        , errMsg :: String
+         -- ^ Internal error message to display in the FileMgr modal
        }
   type (DrawConstraints FileMgrPane s WName) = ( HasFocus s WName )
   type (EventConstraints FileMgrPane e) = ( HasFocus e WName )
-  initPaneState _ = FB Nothing (Projects mempty) False ""
+  initPaneState _ = FB Nothing (Projects mempty) (Right False) False ""
   drawPane ps gs = drawFB ps gs <$> fB ps
   focusable _ ps = case fB ps of
                      Nothing -> mempty
@@ -79,17 +84,21 @@ instance Pane WName MyWorkEvent FileMgrPane FileMgrOps where
              Focused (Just (WName "FMgr:SaveBtn")) -> handleFileSaveEvent ev ts
              _ -> return ts
   updatePane = \case
-    AckNewProjects -> \ps -> ps { newProjects = False }
+    AckNewProjects -> \ps -> ps { newProjects = Right False }
     UpdProject mbOldNm prj ->
-      (myProjectsL %~ updateProject mbOldNm prj) . (newProjectsL .~ True)
+      (myProjectsL %~ updateProject mbOldNm prj)
+      . (newProjectsL .~ Right True)
+      . (unsavedChangesL .~ True)
     DelProject pname ->
-      myProjectsL %~ Projects . filter ((/= pname) . name) . projects
+      (myProjectsL %~ Projects . filter ((/= pname) . name) . projects)
+      . (unsavedChangesL .~ True)
     DelLocation pname locn ->
       let rmvLoc p = if name p == pname
                      then p { locations = filter (not . thisLoc) $ locations p }
                      else p
           thisLoc = ((== locn) . location)
-      in myProjectsL %~ Projects . fmap rmvLoc . projects
+      in (myProjectsL %~ Projects . fmap rmvLoc . projects)
+         . (unsavedChangesL .~ True)
     DelNote pname locn nt ->
       let rmvNote p = if name p == pname
                       then p { locations = rmvNote' <$> locations p }
@@ -98,7 +107,8 @@ instance Pane WName MyWorkEvent FileMgrPane FileMgrOps where
                        then l { notes = filter (not . thisNote) $ notes l }
                        else l
           thisNote = ((== nt) . noteTitle)
-      in myProjectsL %~ Projects . fmap rmvNote . projects
+      in (myProjectsL %~ Projects . fmap rmvNote . projects)
+         . (unsavedChangesL .~ True)
 
 
 fBrowser :: Lens' (PaneState FileMgrPane MyWorkEvent) (Maybe (FileBrowser WName))
@@ -107,8 +117,11 @@ fBrowser f ps = (\n -> ps { fB = n }) <$> f (fB ps)
 myProjectsL :: Lens' (PaneState FileMgrPane MyWorkEvent) Projects
 myProjectsL f wc = (\n -> wc { myProjects = n }) <$> f (myProjects wc)
 
-newProjectsL :: Lens' (PaneState FileMgrPane MyWorkEvent) Bool
+newProjectsL :: Lens' (PaneState FileMgrPane MyWorkEvent) (Either Confirm Bool)
 newProjectsL f wc = (\n -> wc { newProjects = n }) <$> f (newProjects wc)
+
+unsavedChangesL :: Lens' (PaneState FileMgrPane MyWorkEvent) Bool
+unsavedChangesL = lens unsavedChanges (\wc n -> wc { unsavedChanges = n })
 
 errMsgL :: Lens' (PaneState FileMgrPane MyWorkEvent) String
 errMsgL f wc = (\n -> wc { errMsg = n }) <$> f (errMsg wc)
@@ -179,11 +192,13 @@ handleFileLoadEvent ev ts =
                 in liftIO $ D.doesDirectoryExist fp >>= \e ->
                   if e
                   then return $ ts & fBrowser .~ Just b
-                  else readProjectsFile fp >>= \case
-                    Left er -> return $ ts & errMsgL .~ er
-                    Right prjs -> return $ (ts { newProjects = True })
-                                  & fBrowser .~ Nothing
-                                  & myProjectsL .~ prjs
+                  else if unsavedChanges ts
+                       then let msg = ConfirmLoad fp
+                            in return $ ts
+                               & newProjectsL .~ Left msg
+                               & fBrowser .~ Nothing
+                       else (fBrowser .~ Nothing)
+                            <$> fileMgrReadProjectsFile fp ts
       case ev of
         Vty.EvKey Vty.KEnter [] -> selectFile
         -- EvKey (KChar ' ') [] -> selectFile -- override filebrowser's default multi-select ability
@@ -210,7 +225,9 @@ handleFileSaveEvent ev ts =
           return $ ts
           & errMsgL .~ "Cannot save to a directory: please select a file"
         False -> do liftIO $ BS.writeFile fp (encode $ myProjects ts)
-                    return $ ts & fBrowser .~ Nothing
+                    return $ ts
+                      & fBrowser .~ Nothing
+                      & unsavedChangesL .~ False
 
 
 instance ToJSON Projects
@@ -259,9 +276,10 @@ initFileMgr :: PaneState FileMgrPane MyWorkEvent
             -> IO (PaneState FileMgrPane MyWorkEvent)
 initFileMgr ps = do
   f <- ensureDefaultProjectFile
-  readProjectsFile f >>= \case
-    Right prjs -> return $ (ps { newProjects = True }) & myProjectsL .~ prjs
-    Left e -> error e
+  ps' <- fileMgrReadProjectsFile f ps
+  let e = ps' ^. errMsgL
+  unless (null e) $ error e
+  return ps'
 
 
 readProjectsFile :: MonadIO m => FilePath -> m (Either String Projects)
@@ -270,6 +288,17 @@ readProjectsFile fp = do
   case newprjs of
     Right prjs -> Right . Projects <$> mapM syncProject (projects prjs)
     e@(Left _) -> return e
+
+fileMgrReadProjectsFile :: MonadIO m
+                        => FilePath
+                        -> PaneState FileMgrPane MyWorkEvent
+                        -> m (PaneState FileMgrPane MyWorkEvent)
+fileMgrReadProjectsFile fp ps = readProjectsFile fp >>= \case
+  Left er -> return $ ps & errMsgL .~ er
+  Right prjs -> return $ ps
+                & myProjectsL .~ prjs
+                & newProjectsL .~ Right True
+                & unsavedChangesL .~ False
 
 
 -- | Called to display the FileMgr modal pane to allow the user to Load or Save.
