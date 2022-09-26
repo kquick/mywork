@@ -35,7 +35,9 @@ instance Pane WName MyWorkEvent Confirm (Maybe Confirm) where
   initPaneState _ = Cf Nothing Nothing
   drawPane ps _ =
     let draw d = renderDialog d ( padBottom (Pad 1)
-                                 $ strWrap $ maybe "Really?" show $ cW ps)
+                                  $ padLeft (Pad 1)
+                                  $ padRight (Pad 1)
+                                  $ strWrap $ maybe "Really?" show $ cW ps)
     in draw <$> cD ps
   focusable _ ps = case cD ps of
                      Nothing -> mempty
