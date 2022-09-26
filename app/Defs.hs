@@ -232,6 +232,9 @@ instance Show Confirm where
 
 ----------------------------------------------------------------------
 
+a'Operation :: AttrName
+a'Operation = attrName "Oper"
+
 a'RoleAuthor, a'RoleContributor, a'RoleMaintainer, a'RoleUser :: AttrName
 a'RoleAuthor = attrName "auth"
 a'RoleContributor = attrName "contrib"

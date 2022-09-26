@@ -118,9 +118,11 @@ myattrs = attrMap defAttr
           , (buttonAttr, black `on` (rgbColor 100 100 (100::Int)))
           , (buttonSelectedAttr, black `on` green)
 
+          , (a'Operation, white `on` (rgbColor 0 1 (0::Int)))
+
           , (a'RoleAuthor, fg $ rgbColor 0 255 (0::Int))
-          , (a'RoleMaintainer, fg $ rgbColor 0 200 (30::Int))
-          , (a'RoleContributor, fg $ rgbColor 0 145 (80::Int))
+          , (a'RoleMaintainer, fg $ rgbColor 0 200 (130::Int))
+          , (a'RoleContributor, fg $ rgbColor 0 145 (180::Int))
           , (a'RoleUser, defAttr)
 
           , (a'ProjName, defAttr `withStyle` bold `withStyle` underline)

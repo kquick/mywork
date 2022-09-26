@@ -9,7 +9,6 @@ module Panes.Operations
 where
 
 import           Brick
-import Brick.Widgets.Dialog ( buttonAttr )
 import           Brick.Panes
 import qualified Data.List as DL
 import           Data.Maybe ( catMaybes )
@@ -37,7 +36,7 @@ instance Pane WName MyWorkEvent OperationsPane () where
                       LocationOp -> "Location"
                       NoteOp -> "Note"
         ops = DL.intersperse (fill ' ')
-              $ withAttr buttonAttr
+              $ withAttr a'Operation
               <$> catMaybes
               [
                 Just $ str $ "F1 Help"
