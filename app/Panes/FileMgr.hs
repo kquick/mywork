@@ -201,7 +201,7 @@ handleFileLoadEvent ev ts =
                             <$> fileMgrReadProjectsFile fp ts
       case ev of
         Vty.EvKey Vty.KEnter [] -> selectFile
-        -- EvKey (KChar ' ') [] -> selectFile -- override filebrowser's default multi-select ability
+        Vty.EvKey (Vty.KChar ' ') [] -> selectFile -- override filebrowser's default multi-select ability
         _ -> return $ ts & fBrowser .~ Just b & errMsgL .~ ""
     Nothing -> return ts  -- shouldn't happen
 
