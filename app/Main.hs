@@ -26,7 +26,7 @@ import qualified Data.Text as T
 import           Data.Version ( showVersion )
 import           Graphics.Vty ( defAttr, withStyle, defaultStyleMask
                               , bold, reverseVideo, dim, underline
-                              , black, white, yellow, red, green, rgbColor )
+                              , black, white, yellow, red, green, cyan, rgbColor )
 import qualified Graphics.Vty as Vty
 import           System.Directory ( setCurrentDirectory )
 
@@ -133,6 +133,7 @@ myattrs = attrMap defAttr
           , (a'Disabled, defAttr `withStyle` dim)
           , (a'Selected, black `on` yellow)
           , (a'Error, fg red)
+          , (a'Notice, fg cyan)
           ]
 
 drawMyWork :: MyWorkState -> [Widget WName]
@@ -194,6 +195,7 @@ handleMyWorkEvent = \case
 
   -- Other application global events (see Pane.Operations)
   VtyEvent (Vty.EvKey (Vty.KFun 9) []) -> do
+    resetMessages
     s <- get
     if s ^. onPane @FileMgrPane . to isFileMgrActive
       then return ()
@@ -207,6 +209,7 @@ handleMyWorkEvent = \case
 
   -- Add an entry to the currently selected pane
   VtyEvent (Vty.EvKey (Vty.KFun 2) []) -> do
+    resetMessages
     s <- get
     case fst $ opOnSelection s of
       ProjectOp ->
@@ -218,6 +221,7 @@ handleMyWorkEvent = \case
 
   -- Add a sub-entry to the currently selected pane entry
   VtyEvent (Vty.EvKey (Vty.KFun 3) []) -> do
+    resetMessages
     s <- get
     case fst $ opOnSelection s of
       ProjectOp -> addLocation s
@@ -226,6 +230,7 @@ handleMyWorkEvent = \case
 
   -- Edit the current selected entry in whichever pane is active
   VtyEvent (Vty.EvKey (Vty.KChar 'e') [Vty.MCtrl]) -> do
+    resetMessages
     s <- get
     case fst $ opOnSelection s of
       ProjectOp ->
@@ -254,6 +259,7 @@ handleMyWorkEvent = \case
 
   -- Delete the current selected entry in whichever pane is active
   VtyEvent (Vty.EvKey Vty.KDel []) -> do
+    resetMessages
     s <- get
     case fst $ opOnSelection s of
       ProjectOp ->
@@ -285,7 +291,8 @@ handleMyWorkEvent = \case
 
   -- Otherwise, allow the Panes in the Panel to handle the event.  The wrappers
   -- handle updates for any inter-state transitions.
-  ev -> do s <- get
+  ev -> do resetMessages
+           s <- get
            (t,s') <- handleFocusAndPanelEvents myWorkFocusL s ev
            put s'
            let postop = do handleConfirmation
@@ -318,6 +325,10 @@ addNote s =
       s' <- s & onPane @NoteInputPane %%~ initNoteInput (notes l) Nothing
       put $ s' & focusRingUpdate myWorkFocusL
     _ -> return ()
+
+
+resetMessages :: EventM WName MyWorkState ()
+resetMessages = modify $ onBaseState . messagesL .~ mempty
 
 
 type PostOpM a = ReaderT PanelTransition (WriterT [Bool] (EventM WName MyWorkState)) a

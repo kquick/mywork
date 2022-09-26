@@ -78,17 +78,22 @@ noteTitle n = case T.lines $ note n of
 
 ----------------------------------------------------------------------
 
-data MyWorkCore = MyWorkCore { myWorkFocus :: FocusRing WName }
+data MyWorkCore = MyWorkCore { myWorkFocus :: FocusRing WName
+                             , message :: [Widget WName]
+                             }
 
 initMyWorkCore :: MyWorkCore
 initMyWorkCore = MyWorkCore { myWorkFocus = focusRing [ WProjList
                                                       , WLocations
                                                       ]
+                            , message = mempty
                             }
 
 coreWorkFocusL :: Lens' MyWorkCore (FocusRing WName)
 coreWorkFocusL f c = (\f' -> c { myWorkFocus = f' }) <$> f (myWorkFocus c)
 
+messagesL :: Lens' MyWorkCore ([Widget WName])
+messagesL f c = (\f' -> c { message = f' }) <$> f (message c)
 
 data WName = WProjList | WLocations | WNotes | WName Text
   deriving (Eq, Ord)
@@ -106,6 +111,17 @@ type MyWorkEvent = ()  -- No app-specific event for this simple app
 
 class HasProjects s where
   getProjects :: s -> (Either Confirm Bool, Projects)
+
+
+class HasMessage s where
+  getMessage :: s -> [Widget WName]
+
+instance HasMessage MyWorkCore where
+  getMessage = message
+
+instance {-# OVERLAPPABLE #-}
+  HasMessage (Panel WName MyWorkEvent MyWorkCore panes) where
+  getMessage = view $ onBaseState . messagesL
 
 
 instance HasFocus MyWorkCore WName where
@@ -264,3 +280,6 @@ a'Selected = attrName "selected"
 
 a'Error :: AttrName
 a'Error = attrName "Error"
+
+a'Notice :: AttrName
+a'Notice = attrName "Notice"
