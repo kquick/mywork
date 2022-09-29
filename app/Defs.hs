@@ -179,6 +179,11 @@ instance ( PanelOps Note WName MyWorkEvent panes MyWorkCore
   selectedNote = selectedNote . view (onPane @Note)
 
 
+getCurrentProject :: HasSelection s => HasProjects s => s -> Maybe Project
+getCurrentProject s = do pnm <- selectedProject s
+                         let (_, prjs) = getProjects s
+                         DL.find ((== pnm) . name) (projects prjs)
+
 getCurrentLocation :: HasSelection s
                    => HasLocation s
                    => HasProjects s

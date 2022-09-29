@@ -337,8 +337,8 @@ handleMyWorkEvent = \case
 
 addLocation :: MyWorkState -> EventM WName MyWorkState ()
 addLocation s =
-  case getCurrentLocation s of
-    Just (p,_) ->
+  case getCurrentProject s of
+    Just p ->
       let n = name p
           ls = locations p
       in put $ s
