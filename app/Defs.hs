@@ -27,7 +27,7 @@ import           Path ( Path, Abs, Dir, File, toFilePath )
 newtype Projects = Projects { projects :: [Project] }
   deriving (Generic, Monoid, Semigroup)
 
-newtype ProjectName = ProjectName Text deriving Eq
+newtype ProjectName = ProjectName Text deriving (Eq, Ord)
 
 data Project = Project { name :: ProjectName
                        , group :: Group
@@ -42,14 +42,14 @@ data Group = Personal | Work | OtherGroup Text
   deriving (Eq, Generic)
 
 data Role = Author | Maintainer | Contributor | User
-  deriving (Show, Enum, Bounded, Eq, Generic)
+  deriving (Show, Enum, Bounded, Eq, Ord, Generic)
 
 data Language = Haskell | Rust | C | CPlusPlus | Python | JavaScript
   deriving (Show, Eq, Generic)
 
 data LocationSpec = LocalSpec (Path Abs Dir)
                   | RemoteSpec Text
-                  deriving (Eq, Generic)
+                  deriving (Eq, Ord, Generic)
 
 instance Show LocationSpec where
   show = \case
@@ -63,10 +63,10 @@ data Location = Location { location :: LocationSpec
                          }
   deriving Generic
 
-data Note = Note { note :: Text
-                 , notedOn :: Day
+data Note = Note { notedOn :: Day
+                 , note :: Text
                  }
-  deriving Generic
+  deriving (Eq, Ord, Generic)
 
 
 numProjects :: Projects -> Int

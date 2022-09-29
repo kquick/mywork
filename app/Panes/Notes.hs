@@ -12,6 +12,7 @@ import           Brick.Panes
 import           Brick.Widgets.List
 import           Control.Lens
 import           Control.Monad ( join )
+import qualified Data.List as DL
 import qualified Data.Text as T
 import qualified Data.Vector as V
 
@@ -34,9 +35,12 @@ instance Pane WName MyWorkEvent Note (Maybe Location) where
     let l = N (list (WName "Notes:List") mempty 1) Nothing
     in flip updatePane l $ join $ snd <$> getCurrentLocation gs
   updatePane mbl ps =
-    case mbl of
-      Just l -> N (listReplace (V.fromList $ notes l) (Just 0) (nL ps)) mbl
-      Nothing -> N (listReplace mempty Nothing (nL ps)) mbl
+    let nl =
+          case mbl of
+            Just l -> listReplace (V.fromList $ sortNotes $ notes l) (Just 0)
+            Nothing -> listReplace mempty Nothing
+        sortNotes = DL.reverse . DL.sort -- most recent first
+    in N (nl (nL ps)) mbl
   drawPane ps gs =
     let isFcsd = gs^.getFocus.to focused == Just WNotes
         rndr nt = str (show (notedOn nt) <> " -- ")

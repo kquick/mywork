@@ -55,7 +55,7 @@ instance Pane WName MyWorkEvent Location (Maybe Project) where
     Just prj -> let ents = [ (location l, locValid l, locatedOn l)
                            | l <- locations prj ]
                     np = if null ents then Nothing else Just 0
-                in (lList %~ listReplace (V.fromList ents) np)
+                in (lList %~ listReplace (V.fromList $ DL.sort ents) np)
                    . (lProj .~ Just prj)
 
 

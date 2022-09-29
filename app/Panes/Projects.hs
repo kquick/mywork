@@ -12,6 +12,7 @@ import           Brick.Panes
 import           Brick.Widgets.Edit
 import           Brick.Widgets.List
 import           Control.Lens
+import qualified Data.List as DL
 import qualified Data.Sequence as Seq
 import           Data.Text ( Text )
 import qualified Data.Text as T
@@ -31,7 +32,7 @@ instance Pane WName MyWorkEvent Projects Projects where
   type (EventType Projects WName MyWorkEvent) = BrickEvent WName MyWorkEvent
   initPaneState s =
     let prjs = projects $ snd $ getProjects s
-        oc = mkListEnt <$> prjs
+        oc = DL.sort (mkListEnt <$> prjs)
         pl = list (WName "Projs:List") (V.fromList oc) 1
         ps = editor (WName "Projs:Filter") (Just 1) ""
     in P pl ps oc
@@ -60,7 +61,7 @@ instance Pane WName MyWorkEvent Projects Projects where
               in return $ ps2 & pList %~ listReplace (V.fromList nc) np
   focusable _ _ = Seq.singleton WProjList
   updatePane newprjs =
-    let oc = mkListEnt <$> projects newprjs
+    let oc = DL.sort (mkListEnt <$> projects newprjs)
     in (pList %~ listReplace (V.fromList oc) (Just 0))
        .
        (pSrch . editContentsL %~ TZ.clearZipper)
