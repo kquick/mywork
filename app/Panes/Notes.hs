@@ -52,7 +52,7 @@ instance Pane WName MyWorkEvent Note (Maybe Location) where
                    , vLimit 1 (fill '-'
                                <+> str " vv - Full Note - vv "
                                <+> fill '-')
-                   , vLimitPercent 25
+                   , vLimitPercent 50
                      $ withVScrollBarHandles
                      $ withVScrollBars OnRight
                      $ viewport (WName "Notes:Scroll") Vertical

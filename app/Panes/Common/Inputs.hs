@@ -101,8 +101,8 @@ validateLocationInput blankAllowed l =
 
 
 mbDateInput :: Lens' s (Maybe Day)
-              -> s
-              -> FormFieldState s e WName
+            -> s
+            -> FormFieldState s e WName
 mbDateInput stateLens =
   let validate = \case
         ("":_) -> Just Nothing

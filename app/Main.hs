@@ -150,14 +150,14 @@ drawMyWork mws =
             panelDraw @SummaryPane mws
           , Just hBorder
           , Just $ hBox $ catMaybes
-            [ hLimitPercent 25
+            [ hLimit 25
               <$> panelDraw @Projects mws
             , Just vBorder
             , Just $ vBox $ catMaybes $
               let pinfo = panelDraw @ProjInfoPane mws
               in [ pinfo
                  , const (hBorderWithLabel (str "Locations")) <$> pinfo
-                 , panelDraw @Location mws
+                 , vLimit 20 <$> panelDraw @Location mws
                  , const (hBorderWithLabel (str "Notes")) <$> pinfo
                  , pinfo >> panelDraw @Note mws
                  ]

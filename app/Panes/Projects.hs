@@ -83,4 +83,4 @@ mkListEnt pr = (role pr, name pr)
 
 
 instance HasSelection (PaneState Projects MyWorkEvent) where
-  selectedProject = fmap snd . fmap snd . listSelectedElement . pL
+  selectedProject = fmap (snd . snd) . listSelectedElement . pL
