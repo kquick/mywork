@@ -91,7 +91,7 @@ applyLocSync now locsts loc =
         -- only adds a note if there isn't already one, preferring the existing
         -- one in case it has been updated (aside from the noteTitle).
         let rnt = rmtnoteTxt ol
-            rn = Note { note = rnt, notedOn = now }
+            rn = Note { note = rnt, notedOn = now, noteSource = MyWorkGenerated }
         in case DL.find ((noteTitle' rnt ==) . noteTitle) (notes cl) of
              Nothing -> cl { notes = rn : notes cl }
              Just _ -> cl
@@ -117,10 +117,12 @@ applyProjLocSync mbOldL p l =
                                            Just rls -> tshow rls
                                            Nothing -> "??"
                                 , notedOn = now
+                                , noteSource = MyWorkGenerated
                                 }
                          ]
                        _ -> [ Note { note = "Related to " <> tshow ls
                                    , notedOn = now
+                                   , noteSource = MyWorkGenerated
                                    }
                             ]
            in Location { location = ls

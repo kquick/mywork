@@ -35,7 +35,7 @@ import           Control.Monad.IO.Class ( MonadIO, liftIO )
 import           Data.Aeson ( ToJSON, FromJSON , eitherDecode, encode, toJSON
                             , genericParseJSON, defaultOptions, genericToJSON
                             , SumEncoding(UntaggedValue), sumEncoding, Options
-                            , parseJSON, withObject, (.:), (.:?), (.!=) )
+                            , parseJSON, withObject, object, (.:), (.:?), (.!=) )
 import qualified Data.ByteString.Lazy as BS
 import           Data.Maybe ( catMaybes )
 import           Data.Maybe ( isJust )
@@ -307,8 +307,19 @@ instance ToJSON Project
 instance ToJSON Group
 instance ToJSON Role
 instance ToJSON Language
-instance ToJSON Location
-instance ToJSON Note
+instance ToJSON Location where
+  -- only emit notes with NoteSource of MyWorkDB
+  toJSON l = object [ ("location", toJSON (location l))
+                    , ("locatedOn", toJSON (locatedOn l))
+                    , ("locValid", toJSON (locValid l))
+                    , ("notes",
+                       toJSON (filter ((MyWorkDB ==) . noteSource) $ notes l))
+                    ]
+instance ToJSON Note where
+  -- does not emit noteSource
+  toJSON n = object [ ("note", toJSON (note n))
+                    , ("notedOn", toJSON (notedOn n))
+                    ]
 
 instance FromJSON ProjectName where parseJSON = fmap ProjectName . parseJSON
 instance FromJSON LocationSpec where
@@ -332,7 +343,11 @@ instance FromJSON Location where
     <*> v .: "locatedOn"
     <*> v .:? "locValid" .!= True -- assumed -- Added in v0.1.1.0
     <*> v .: "notes"
-instance FromJSON Note
+instance FromJSON Note where
+  parseJSON = withObject "Note" $ \v -> Note
+    <$> v .: "notedOn"
+    <*> v .: "note"
+    <*> pure MyWorkDB
 
 
 locationSpecOptions :: Options

@@ -65,9 +65,12 @@ data Location = Location { location :: LocationSpec
 
 data Note = Note { notedOn :: Day
                  , note :: Text
+                 , noteSource :: NoteSource
                  }
   deriving (Eq, Ord, Generic)
 
+data NoteSource = MyWorkDB | ProjLoc | MyWorkGenerated
+  deriving (Eq, Ord)
 
 numProjects :: Projects -> Int
 numProjects = length . projects
