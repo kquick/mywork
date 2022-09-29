@@ -10,7 +10,7 @@ module Sync
 where
 
 import           Control.Applicative ( (<|>) )
-import           Control.Monad ( foldM )
+import           Control.Monad ( filterM, foldM )
 import           Control.Monad.IO.Class ( MonadIO, liftIO )
 import           Control.Monad.State ( evalStateT, gets, modify )
 import qualified Data.HashMap.Lazy as HM
@@ -104,10 +104,14 @@ getDarcsLocs lcl =
       mkDarcs t = ( DarcsRepo
                   , maybe (RemoteSpec t) LocalSpec $ parseAbsDir $ T.unpack t
                   )
+      lclExists (_,r) = case r of
+        RemoteSpec _ -> return True
+        LocalSpec d -> doesDirExist d
   in do de <- liftIO (doesFileExist darcsRepos)
         if de
-          then fmap mkDarcs . T.lines
-               <$> (liftIO $ TIO.readFile $ toFilePath darcsRepos)
+          then do rst <- liftIO $ TIO.readFile $ toFilePath darcsRepos
+                  let rsc = mkDarcs <$> T.lines rst
+                  filterM lclExists rsc
           else return mempty
 
 
@@ -139,7 +143,7 @@ applyLocSync now locsts loc =
           "Cloned from git repo " <> tshow n <> " @ " <> tshow r
         (GitFork (GitRepo (GitRemote n)), r) ->
           "Pushing to git repo " <> tshow n <> " fork @ " <>  tshow r
-        (DarcsRepo, r) -> "Cloned from darcs repo @ " <> tshow r
+        (DarcsRepo, r) -> "Synced with darcs repo @ " <> tshow r
         (_, r) -> "Related to " <> tshow r
       addRmtNoteText ol cl =
         -- n.b. instead of using updateNote, which prefers the new note, this
