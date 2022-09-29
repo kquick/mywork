@@ -26,10 +26,11 @@ data LocationStatus = LocationStatus { locExists :: Maybe Bool
 syncLocation :: MonadIO m => Location -> m LocationStatus
 syncLocation l =
   if isLocationLocal l
-  then do e <- liftIO $ doesDirectoryExist (T.unpack $ location l)
+  then do let LocationSpec lt = location l
+          e <- liftIO $ doesDirectoryExist (T.unpack lt)
           u <- if e
                then Just . utctDay
-                    <$> liftIO (getModificationTime (T.unpack $ location l))
+                    <$> liftIO (getModificationTime (T.unpack lt))
                else return Nothing
           return $ LocationStatus { locExists = Just e, lastUpd = u }
   else return LocationStatus { locExists = Nothing, lastUpd = Nothing }

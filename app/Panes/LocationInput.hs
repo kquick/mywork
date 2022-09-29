@@ -37,7 +37,7 @@ import           Sync
 data LocationInputPane
 
 
-data NewLoc = NewLoc { _nlName :: Text
+data NewLoc = NewLoc { _nlName :: LocationSpec
                      , _nlDay :: Maybe Day
                      }
 
@@ -45,7 +45,7 @@ makeLenses ''NewLoc
 
 
 blankNewLoc :: NewLoc
-blankNewLoc = NewLoc "" Nothing
+blankNewLoc = NewLoc (LocationSpec "") Nothing
 
 type LocForm = Form NewLoc MyWorkEvent WName
 
@@ -56,16 +56,17 @@ instance Pane WName MyWorkEvent LocationInputPane () where
                                                       -- reset to Nothing when
                                                       -- nLF transitions Nothing
                                                       -- to Just
-                                                      , nProj :: Text
+                                                      , nProj :: ProjectName
                                                       , nOrig :: Maybe Location
                                                       , nErr :: Maybe Text
                                                 }
   type (EventType LocationInputPane WName MyWorkEvent) = BrickEvent WName MyWorkEvent
-  initPaneState _ = NL Nothing Nothing "" Nothing Nothing
+  initPaneState _ = NL Nothing Nothing (ProjectName "") Nothing Nothing
   drawPane ps _gs =
     C.centerLayer
     . modalB ((maybe "New" (const "Edit") $ nOrig ps)
-              <> " " <> (T.pack $ show $ nProj ps) <> " Location")
+              <> " " <> (let ProjectName pnm = nProj ps in T.pack $ show pnm)
+              <> " Location")
     . vLimit 25
     . hLimitPercent 65
     . (\f -> vBox [ renderForm f
@@ -123,7 +124,7 @@ newLocation f s = (\n -> s { nLoc = n }) <$> f (nLoc s)
 -- | Returns the original location name (if any) and the new Location
 -- specification.
 locationInputResults :: PaneState LocationInputPane MyWorkEvent
-                     -> (Maybe Text, Maybe Location)
+                     -> (Maybe LocationSpec, Maybe Location)
 locationInputResults ps = (location <$> nOrig ps, nLoc ps)
 
 
@@ -138,7 +139,7 @@ validateForm inner = do
          return $ s & nLFL %~ fmap (setFieldValid valid tgt)
 
 
-initLocInput :: Text -- Project Name
+initLocInput :: ProjectName
              -> [Location]
              -> Maybe Location
              -> PaneState LocationInputPane MyWorkEvent

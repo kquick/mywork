@@ -28,8 +28,8 @@ instance Pane WName MyWorkEvent OperationsPane () where
                                                   )
   initPaneState _ = Unused
   drawPane _ gs =
-    let (o,t) = opOnSelection gs
-        projInd = case t of
+    let o = opOnSelection gs
+        projInd = case selectedProject gs of
                     Nothing -> withAttr a'Disabled
                     Just _ -> id
         addWhat x = case x of

@@ -14,7 +14,6 @@ import           Brick.Widgets.List
 import           Control.Lens
 import qualified Data.List as DL
 import           Data.Maybe ( fromMaybe )
-import           Data.Text ( Text )
 import           Data.Time.Calendar
 import qualified Data.Vector as V
 
@@ -23,7 +22,7 @@ import           Defs
 
 instance Pane WName MyWorkEvent Location (Maybe Project) where
   data (PaneState Location MyWorkEvent) =
-    L { lL :: List WName (Text, Bool, Maybe Day)
+    L { lL :: List WName (LocationSpec, Bool, Maybe Day)
       , lP :: Maybe Project
       }
   type (InitConstraints Location s) = ( HasSelection s, HasProjects s )
@@ -39,7 +38,7 @@ instance Pane WName MyWorkEvent Location (Maybe Project) where
     let isFcsd = gs^.getFocus.to focused == Just WLocations
         rndr (l,v,d) =
           let lattr = if v then id else withAttr a'Error
-          in (lattr (txt l)
+          in (lattr (let LocationSpec lt = l in txt lt)
               <+> vLimit 1 (fill ' ')
               <+> (if v
                     then str $ maybe "*" show d
@@ -60,7 +59,8 @@ instance Pane WName MyWorkEvent Location (Maybe Project) where
                    . (lProj .~ Just prj)
 
 
-lList :: Lens' (PaneState Location MyWorkEvent) (List WName (Text, Bool, Maybe Day))
+lList :: Lens' (PaneState Location MyWorkEvent)
+         (List WName (LocationSpec, Bool, Maybe Day))
 lList f ps = (\n -> ps { lL = n }) <$> f (lL ps)
 
 lProj :: Lens' (PaneState Location MyWorkEvent) (Maybe Project)

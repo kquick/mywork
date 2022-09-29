@@ -22,9 +22,9 @@ import           Defs
 
 
 instance Pane WName MyWorkEvent Projects Projects where
-  data (PaneState Projects MyWorkEvent) = P { pL :: List WName (Role, Text)
+  data (PaneState Projects MyWorkEvent) = P { pL :: List WName (Role, ProjectName)
                                             , pS :: Editor Text WName
-                                            , oC :: [ (Role, Text) ]
+                                            , oC :: [ (Role, ProjectName) ]
                                             }
   type (InitConstraints Projects s) = ( HasProjects s )
   type (DrawConstraints Projects s WName) = ( HasFocus s WName )
@@ -37,7 +37,8 @@ instance Pane WName MyWorkEvent Projects Projects where
     in P pl ps oc
   drawPane ps gs =
     let isFcsd = gs^.getFocus.to focused == Just WProjList
-        renderListEnt _ (r,n) = withAttr (roleAttr r) $ txt n
+        renderListEnt _ (r,n) = withAttr (roleAttr r)
+                                $ let ProjectName nm = n in txt nm
         lst = renderList renderListEnt isFcsd (pL ps)
         srch = str "Search: " <+> renderEditor (txt . head) isFcsd (pS ps)
     in Just $ vBox [ lst, fill ' ', srch ]
@@ -51,9 +52,10 @@ instance Pane WName MyWorkEvent Projects Projects where
        let searchText = head $ ps2 ^. pSrch . to getEditContents
        if searchText == origSearchText
          then return ps2
-         else let nc = if T.null searchText
+         else let nmtxt ent = let ProjectName pnt = snd ent in pnt
+                  nc = if T.null searchText
                        then oC ps2
-                       else filter ((searchText `T.isInfixOf`) . snd) (oC ps2)
+                       else filter ((searchText `T.isInfixOf`) . nmtxt) (oC ps2)
                   np = if null nc then Nothing else Just 0
               in return $ ps2 & pList %~ listReplace (V.fromList nc) np
   focusable _ _ = Seq.singleton WProjList
@@ -66,16 +68,16 @@ instance Pane WName MyWorkEvent Projects Projects where
        (pOrig .~ oc)
 
 
-pList :: Lens' (PaneState Projects MyWorkEvent) (List WName (Role, Text))
+pList :: Lens' (PaneState Projects MyWorkEvent) (List WName (Role, ProjectName))
 pList f ps = (\n -> ps { pL = n }) <$> f (pL ps)
 
 pSrch :: Lens' (PaneState Projects MyWorkEvent) (Editor Text WName)
 pSrch f ps = (\n -> ps { pS = n }) <$> f (pS ps)
 
-pOrig :: Lens' (PaneState Projects MyWorkEvent) [ (Role, Text) ]
+pOrig :: Lens' (PaneState Projects MyWorkEvent) [ (Role, ProjectName) ]
 pOrig f ps = (\n -> ps { oC = n }) <$> f (oC ps)
 
-mkListEnt :: Project -> (Role, Text)
+mkListEnt :: Project -> (Role, ProjectName)
 mkListEnt pr = (role pr, name pr)
 
 

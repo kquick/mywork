@@ -83,12 +83,14 @@ main = do i <- initialState & onPane @FileMgrPane %%~ initFileMgr
           s <- defaultMain myworkApp i
           case getCurrentLocation s of
             Just (p,mbl) ->
-              do putStrLn $ T.unpack $ name p <> ": " <> description p
+              do let ProjectName pnm = name p
+                 putStrLn $ T.unpack $ pnm <> ": " <> description p
                  case mbl of
                    Nothing -> return ()
                    Just l -> do
-                     putStrLn $ T.unpack $ location l
-                     setCurrentDirectory $ T.unpack $ location l
+                     let LocationSpec ls = location l
+                     putStrLn $ T.unpack ls
+                     setCurrentDirectory $ T.unpack ls
             Nothing -> return ()
 
 
@@ -226,7 +228,7 @@ handleMyWorkEvent = \case
   VtyEvent (Vty.EvKey (Vty.KFun 2) []) -> do
     resetMessages
     s <- get
-    case fst $ opOnSelection s of
+    case opOnSelection s of
       ProjectOp ->
         put $ s
         & onPane @AddProjPane %~ initAddProj (snd $ getProjects s) Nothing
@@ -238,7 +240,7 @@ handleMyWorkEvent = \case
   VtyEvent (Vty.EvKey (Vty.KFun 3) []) -> do
     resetMessages
     s <- get
-    case fst $ opOnSelection s of
+    case opOnSelection s of
       ProjectOp -> addLocation s
       LocationOp -> addNote s
       NoteOp -> addNote s  -- Note: F3 is not displayed, but no lower entry
@@ -247,7 +249,7 @@ handleMyWorkEvent = \case
   VtyEvent (Vty.EvKey (Vty.KChar 'e') [Vty.MCtrl]) -> do
     resetMessages
     s <- get
-    case fst $ opOnSelection s of
+    case opOnSelection s of
       ProjectOp ->
         case getCurrentLocation s of
           Just (p, _) ->
@@ -276,7 +278,7 @@ handleMyWorkEvent = \case
   VtyEvent (Vty.EvKey Vty.KDel []) -> do
     resetMessages
     s <- get
-    case fst $ opOnSelection s of
+    case opOnSelection s of
       ProjectOp ->
         case getCurrentLocation s of
           Just (p, _) ->

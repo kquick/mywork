@@ -26,7 +26,9 @@ import           GHC.Generics ( Generic )
 newtype Projects = Projects { projects :: [Project] }
   deriving (Generic, Monoid, Semigroup)
 
-data Project = Project { name :: Text
+newtype ProjectName = ProjectName Text deriving Eq
+
+data Project = Project { name :: ProjectName
                        , group :: Group
                        , role :: Role
                        , description :: Text
@@ -44,7 +46,9 @@ data Role = Author | Maintainer | Contributor | User
 data Language = Haskell | Rust | C | CPlusPlus | Python | JavaScript
   deriving (Show, Eq, Generic)
 
-data Location = Location { location :: Text
+newtype LocationSpec = LocationSpec Text deriving Eq
+
+data Location = Location { location :: LocationSpec
                          , locatedOn :: Maybe Day
                          , locValid :: Bool
                          , notes :: [Note]
@@ -70,10 +74,15 @@ instance Show Group where
     Work -> "Work"
     OtherGroup g -> unpack g
 
-noteTitle :: Note -> Text
-noteTitle n = case T.lines $ note n of
-                [] -> ""
-                (t:_) -> t
+newtype NoteTitle = NoteTitle Text deriving Eq
+
+noteTitle :: Note -> NoteTitle
+noteTitle = noteTitle' . note
+
+noteTitle' :: Text -> NoteTitle
+noteTitle' t = case T.lines t of
+                 [] -> NoteTitle ""
+                 (l:_) -> NoteTitle l
 
 
 ----------------------------------------------------------------------
@@ -133,7 +142,7 @@ instance HasFocus MyWorkCore WName where
 
 
 class HasSelection s where
-  selectedProject :: s -> Maybe Text
+  selectedProject :: s -> Maybe ProjectName
 
 instance ( PanelOps Projects WName MyWorkEvent panes MyWorkCore
          , HasSelection (PaneState Projects MyWorkEvent)
@@ -143,7 +152,7 @@ instance ( PanelOps Projects WName MyWorkEvent panes MyWorkCore
 
 class HasLocation s where
   -- | Returns the currently selected project and location
-  selectedLocation :: s -> Maybe (Text, Text)
+  selectedLocation :: s -> Maybe (ProjectName, LocationSpec)
 
 instance ( PanelOps Location WName MyWorkEvent panes MyWorkCore
          , HasLocation (PaneState Location MyWorkEvent)
@@ -153,7 +162,7 @@ instance ( PanelOps Location WName MyWorkEvent panes MyWorkCore
 
 class HasNote s where
   -- | Returns the currently selected location and note
-  selectedNote :: s -> Maybe (Text, Text)
+  selectedNote :: s -> Maybe (LocationSpec, NoteTitle)
 
 instance ( PanelOps Note WName MyWorkEvent panes MyWorkCore
          , HasNote (PaneState Note MyWorkEvent)
@@ -181,13 +190,14 @@ getCurrentNote s l = do (l',n) <- selectedNote s
 isLocationLocal :: Location -> Bool
 isLocationLocal = isLocationLocal' . location
 
-isLocationLocal' :: Text -> Bool
-isLocationLocal' l = not $ or [ "http://" `T.isPrefixOf` l
-                              , "https://" `T.isPrefixOf` l
-                              , "git@" `T.isPrefixOf` l
-                              ]
+isLocationLocal' :: LocationSpec -> Bool
+isLocationLocal' (LocationSpec l) =
+  not $ or [ "http://" `T.isPrefixOf` l
+           , "https://" `T.isPrefixOf` l
+           , "git@" `T.isPrefixOf` l
+           ]
 
-updateProject :: Maybe Text -> Project -> Projects -> Projects
+updateProject :: Maybe ProjectName -> Project -> Projects -> Projects
 updateProject onm p (Projects ps) =
   let oldName = maybe (name p) id onm
       (match, other) = DL.partition ((== oldName) . name) ps
@@ -195,7 +205,7 @@ updateProject onm p (Projects ps) =
   in Projects $ p' : other
 
 
-updateLocation :: Maybe Text -> Location -> Project -> Project
+updateLocation :: Maybe LocationSpec -> Location -> Project -> Project
 updateLocation ol l p =
   let oldName = maybe (location l) id ol
       (match, other) = DL.partition ((== oldName) . location) (locations p)
@@ -204,7 +214,8 @@ updateLocation ol l p =
   in p { locations = l' : other }
 
 
-updateNote :: Maybe Text -> Note -> Location -> Project -> (Project, Location)
+updateNote :: Maybe NoteTitle -> Note -> Location -> Project
+           -> (Project, Location)
 updateNote oldn n l p =
   let oldName = maybe (noteTitle n) id oldn
       newL = l { notes = n : filter ((/= oldName) . noteTitle) (notes l) }
@@ -217,18 +228,18 @@ data OpOn = ProjectOp | LocationOp | NoteOp
 opOnSelection :: HasSelection s
               => HasLocation s
               => HasFocus s WName
-              => s -> (OpOn, Maybe Text)
+              => s -> OpOn
 opOnSelection s =
   case s ^. getFocus of
-    Focused (Just WProjList) -> (ProjectOp, selectedProject s)
-    Focused (Just WLocations) -> (LocationOp, snd <$> selectedLocation s)
-    Focused (Just WNotes) -> (NoteOp, Nothing) -- TODO: selectedNote
-    _ -> (ProjectOp, Nothing)
+    Focused (Just WProjList) -> ProjectOp
+    Focused (Just WLocations) -> LocationOp
+    Focused (Just WNotes) -> NoteOp
+    _ -> ProjectOp
 
 
-data Confirm = ConfirmProjectDelete Text -- project name
-             | ConfirmLocationDelete Text Text -- project name, location
-             | ConfirmNoteDelete Text Text Text -- project name, location, noteTitle
+data Confirm = ConfirmProjectDelete ProjectName
+             | ConfirmLocationDelete ProjectName LocationSpec
+             | ConfirmNoteDelete ProjectName LocationSpec NoteTitle
              | ConfirmLoad String -- filepath
              | ConfirmQuit
 
@@ -237,14 +248,20 @@ data Confirm = ConfirmProjectDelete Text -- project name
 instance Show Confirm where
   show = \case
     ConfirmProjectDelete pname ->
-      "Are you sure you want to delete project " <> show pname
-      <> " and all associated locations and notes?"
+      let ProjectName pnm = pname
+      in "Are you sure you want to delete project " <> show pnm
+         <> " and all associated locations and notes?"
     ConfirmLocationDelete pname locn ->
-      "Are you sure you want to remove location " <> show locn
-      <> " from project " <> show pname <> "?"
+      let ProjectName pnm = pname
+          LocationSpec lspec = locn
+      in "Are you sure you want to remove location " <> show lspec
+         <> " from project " <> show pnm <> "?"
     ConfirmNoteDelete pname locn nt ->
-      "Remove the following note from project " <> show pname
-      <> ", location " <> show locn <> "?\n\n  " <> show nt
+      let ProjectName pnm = pname
+          LocationSpec lspec = locn
+          NoteTitle ntitle = nt
+      in "Remove the following note from project " <> show pnm
+         <> ", location " <> show lspec <> "?\n\n  " <> show ntitle
     ConfirmLoad fp ->
       "Discard local changes and load projects from " <> show fp <> "?"
     ConfirmQuit -> "There are unsaved changes.  Are you sure you want to quit?"

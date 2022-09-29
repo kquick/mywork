@@ -30,7 +30,7 @@ instance Pane WName MyWorkEvent ProjInfoPane () where
       Just p ->
         let mkPane prj =
               vBox
-              [ withAttr a'ProjName (txt p)
+              [ withAttr a'ProjName (let ProjectName nm = p in txt nm)
                 <+> vLimit 1 (fill ' ')
                 <+> str "  ["
                 <+> (str $ show $ group prj)

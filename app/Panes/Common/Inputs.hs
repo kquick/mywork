@@ -58,34 +58,36 @@ textToDay t =
 locationInput :: [Location]
               -> Maybe Location
               -> Bool
-              -> Lens' s Text
+              -> Lens' s LocationSpec
               -> s
               -> FormFieldState s e WName
 locationInput locs mbLoc blankAllowed stateLens =
   let validate = \case
-        [] -> if blankAllowed then Just "" else Nothing
-        (l:_) -> if or [ and [ l `elem` (location <$> locs)
-                             , maybe True ((l /=) . location) mbLoc
+        [] -> if blankAllowed then Just (LocationSpec "") else Nothing
+        (l:_) -> let ls = LocationSpec l
+                 in if or [ and [ ls `elem` (location <$> locs)
+                             , maybe True ((ls /=) . location) mbLoc
                              ]
                        , and [ not blankAllowed
                              , or [ not (isValid (T.unpack l))
-                                  , isLocationLocal' l && isRelative (T.unpack l)
+                                  , isLocationLocal' ls && isRelative (T.unpack l)
                                   ]
                              ]
                        ]
                  then Nothing  -- invalid
-                 else Just $ T.pack $ normalise $ T.unpack l
+                 else Just $ LocationSpec $ T.pack $ normalise $ T.unpack l
   in editField stateLens (WName "New Location") (Just 1)
-     id validate (txt . headText) id
+     (\(LocationSpec ls) -> ls) validate (txt . headText) id
 
 
-validateLocationInput :: MonadIO m => Bool -> Text -> m (WName, Bool)
+validateLocationInput :: MonadIO m => Bool -> LocationSpec -> m (WName, Bool)
 validateLocationInput blankAllowed l =
   let tgt = WName "New Location"
-  in if blankAllowed && T.null l
+      LocationSpec ls = l
+  in if blankAllowed && T.null ls
      then return (tgt, True)
      else if isLocationLocal' l
-          then (tgt,) <$> (liftIO $ doesDirectoryExist $ T.unpack l)
+          then (tgt,) <$> (liftIO $ doesDirectoryExist $ T.unpack ls)
           else return (tgt, True)
 
 

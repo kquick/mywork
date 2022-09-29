@@ -31,13 +31,12 @@ import qualified Control.Exception as X
 import           Control.Lens
 import           Control.Monad ( unless )
 import           Control.Monad.IO.Class ( MonadIO, liftIO )
-import           Data.Aeson ( ToJSON, FromJSON, eitherDecode, encode
+import           Data.Aeson ( ToJSON, FromJSON, eitherDecode, encode, toJSON
                             , parseJSON, withObject, (.:), (.:?), (.!=) )
 import qualified Data.ByteString.Lazy as BS
 import           Data.Maybe ( catMaybes )
 import           Data.Maybe ( isJust )
 import qualified Data.Sequence as Seq
-import           Data.Text ( Text )
 import qualified Graphics.Vty as Vty
 import qualified System.Directory as D
 import           System.FilePath ( (</>), takeDirectory )
@@ -50,10 +49,10 @@ import           Sync
 data FileMgrPane
 
 data FileMgrOps = AckNewProjects
-                | UpdProject (Maybe Text) Project -- add or replace project
-                | DelProject Text
-                | DelLocation Text Text
-                | DelNote Text Text Text
+                | UpdProject (Maybe ProjectName) Project -- add/replace project
+                | DelProject ProjectName
+                | DelLocation ProjectName LocationSpec
+                | DelNote ProjectName LocationSpec NoteTitle
 
 instance Pane WName MyWorkEvent FileMgrPane FileMgrOps where
   data (PaneState FileMgrPane MyWorkEvent) =
@@ -280,6 +279,8 @@ handleFileSaveEvent ev ts =
     doSave f = fileMgrSaveProjectsFile (fileInfoFilePath f) ts
 
 
+instance ToJSON ProjectName where toJSON (ProjectName pnm) = toJSON pnm
+instance ToJSON LocationSpec where toJSON (LocationSpec lcn) = toJSON lcn
 instance ToJSON Projects
 instance ToJSON Project
 instance ToJSON Group
@@ -288,6 +289,8 @@ instance ToJSON Language
 instance ToJSON Location
 instance ToJSON Note
 
+instance FromJSON ProjectName where parseJSON = fmap ProjectName . parseJSON
+instance FromJSON LocationSpec where parseJSON = fmap LocationSpec . parseJSON
 instance FromJSON Projects
 instance FromJSON Project where
   parseJSON = withObject "Project" $ \v -> Project

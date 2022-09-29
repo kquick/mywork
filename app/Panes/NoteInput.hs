@@ -119,8 +119,8 @@ newNote f s = (\n -> s { nNote = n }) <$> f (nNote s)
 -- | Returns the original note name (if any) and the new Note
 -- specification.
 noteInputResults :: PaneState NoteInputPane MyWorkEvent
-                 -> (Maybe Text, Maybe Note)
-noteInputResults ps = (note <$> nOrig ps, nNote ps)
+                 -> (Maybe NoteTitle, Maybe Note)
+noteInputResults ps = (noteTitle <$> nOrig ps, nNote ps)
 
 
 -- KWQ: remove!?
@@ -154,10 +154,11 @@ initNoteInput curNotes mbNote ps = do
               let validate = \case
                     [] -> Nothing
                     [""] -> Nothing
-                    o@(l:_) -> if (l `elem` (noteTitle <$> curNotes)
-                                   && (maybe True ((l /=) . noteTitle) mbNote))
-                               then Nothing  -- invalid
-                               else Just $ T.intercalate "\n" o
+                    o -> let nt = noteTitle' $ T.unlines o
+                         in if (nt `elem` (noteTitle <$> curNotes)
+                                && (maybe True ((nt /=) . noteTitle) mbNote))
+                            then Nothing  -- invalid
+                            else Just $ T.intercalate "\n" o
               in editField nnText (WName "New Note")
                  Nothing
                  -- (Just 20)

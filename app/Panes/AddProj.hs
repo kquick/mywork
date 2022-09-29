@@ -38,14 +38,14 @@ import           Sync
 data AddProjPane
 
 
-data NewProj = NewProj { _npName :: Text
+data NewProj = NewProj { _npName :: ProjectName
                        , _npRole :: Role
                        , _npGroupG :: Maybe Group
                        , _npGroupT :: Text
                        , _npLangR :: Either Text Language
                        , _npLangT :: Text
                        , _npDesc :: Text
-                       , _npLoc :: Text
+                       , _npLoc :: LocationSpec
                        , _npLocDate :: Maybe Day
                        }
 
@@ -53,7 +53,8 @@ makeLenses ''NewProj
 
 
 blankNewProj :: NewProj
-blankNewProj = NewProj "" User (Just Personal) "" (Right C) "" "" "" Nothing
+blankNewProj = NewProj (ProjectName "") User (Just Personal) "" (Right C)
+               "" "" (LocationSpec "") Nothing
 
 type ProjForm = Form NewProj MyWorkEvent WName
 
@@ -97,7 +98,8 @@ instance Pane WName MyWorkEvent AddProjPane () where
                                 r@(Right _) -> r
                                 Left _ -> Left $ form ^. npLangT
                             , description = form ^. npDesc
-                            , locations = if T.null (form ^. npLoc)
+                            , locations = let LocationSpec ls = form ^. npLoc
+                                          in if T.null ls
                                           then mempty
                                           else [ Location
                                                  { location = form ^. npLoc
@@ -140,7 +142,7 @@ newProject f s = (\n -> s { nPrj = n}) <$> f (nPrj s)
 -- | Returns the original project name (if any) and the new Project
 -- specification.
 projectInputResults :: PaneState AddProjPane MyWorkEvent
-                     -> (Maybe Text, Maybe Project)
+                     -> (Maybe ProjectName, Maybe Project)
 projectInputResults ps = (name <$> nOrig ps, nPrj ps)
 
 
@@ -187,12 +189,13 @@ initAddProj prjs mbProj ps =
               let validate = \case
                     [] -> Nothing
                     [""] -> Nothing
-                    (nm:_) -> if nm `elem` (name <$> projects prjs) &&
-                                 (maybe True ((nm /=) . name) mbProj)
-                              then Nothing  -- invalid
-                              else Just nm
+                    (nmt:_) -> let nm = ProjectName nmt
+                               in if nm `elem` (name <$> projects prjs) &&
+                                     (maybe True ((nm /=) . name) mbProj)
+                                  then Nothing  -- invalid
+                                  else Just nm
               in editField npName (WName "New Project Name") (Just 1)
-                 id validate (txt . headText) id
+                 (\(ProjectName nm) -> nm) validate (txt . headText) id
             , label' "Group" @@=
               radioField npGroupG
               [ (Just Personal, (WName "+Prj:Grp:Personal"), "Personal")
@@ -250,7 +253,7 @@ initAddProj prjs mbProj ps =
                                                 Right _ -> ""
                                                 Left t -> t
                                  , _npDesc = description p
-                                 , _npLoc = ""
+                                 , _npLoc = LocationSpec ""
                                  , _npLocDate = Nothing
                                  }
             )
