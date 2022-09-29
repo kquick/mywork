@@ -1,3 +1,4 @@
+{-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE LambdaCase #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE QuasiQuotes #-}
@@ -11,6 +12,7 @@ where
 import           Control.Applicative ( (<|>) )
 import           Control.Monad ( foldM )
 import           Control.Monad.IO.Class ( MonadIO, liftIO )
+import           Control.Monad.State ( evalStateT, gets, modify )
 import qualified Data.HashMap.Lazy as HM
 import           Data.Ini
 import qualified Data.List as DL
@@ -128,35 +130,41 @@ applyLocSync now locsts loc =
 
 applyProjLocSync :: MonadIO m
                  => Maybe LocationSpec -> Project -> Location -> m Project
-applyProjLocSync mbOldL p l =
-  do locsts <- syncLocation l
-     now <- utctDay <$> liftIO getCurrentTime
-     let p' = updateLocation mbOldL (applyLocSync now locsts l) p
-     let rmtspec rmtName =
-           DL.lookup (GitRepo (GitRemote rmtName)) $ otherLocs locsts
-     let mkLoc (lt,ls) =
-           let nts = case lt of
-                       GitRepo (GitRemote _) -> mempty
-                       GitFork (GitRepo (GitRemote n)) ->
-                         [ Note { note = "Fork of git repo @ " <>
-                                         case rmtspec n of
-                                           Just rls -> tshow rls
-                                           Nothing -> "??"
-                                , notedOn = now
-                                , noteSource = MyWorkGenerated
-                                }
-                         ]
-                       _ -> [ Note { note = "Related to " <> tshow ls
-                                   , notedOn = now
-                                   , noteSource = MyWorkGenerated
-                                   }
-                            ]
-           in Location { location = ls
-                       , locatedOn = Nothing
-                       , locValid = True
-                       , notes = nts
-                       }
-     foldM (applyProjLocSync Nothing) p' (mkLoc <$> otherLocs locsts)
+applyProjLocSync mbOldL_ p_ l_ = evalStateT (go mbOldL_ p_ l_) mempty
+  where
+    go mbOldL p l =
+      gets (location l `elem`) >>= \case
+      True -> return p
+      False ->
+        do modify (location l :)
+           locsts <- syncLocation l
+           now <- utctDay <$> liftIO getCurrentTime
+           let p' = updateLocation mbOldL (applyLocSync now locsts l) p
+           let rmtspec rmtName =
+                 DL.lookup (GitRepo (GitRemote rmtName)) $ otherLocs locsts
+           let mkLoc (lt,ls) =
+                 let nts = case lt of
+                             GitRepo (GitRemote _) -> mempty
+                             GitFork (GitRepo (GitRemote n)) ->
+                               [ Note { note = "Fork of git repo @ " <>
+                                               case rmtspec n of
+                                                 Just rls -> tshow rls
+                                                 Nothing -> "??"
+                                      , notedOn = now
+                                      , noteSource = MyWorkGenerated
+                                      }
+                               ]
+                             _ -> [ Note { note = "Related to " <> tshow ls
+                                         , notedOn = now
+                                         , noteSource = MyWorkGenerated
+                                         }
+                                  ]
+                 in Location { location = ls
+                             , locatedOn = Nothing
+                             , locValid = True
+                             , notes = nts
+                             }
+           foldM (go Nothing) p' (mkLoc <$> otherLocs locsts)
 
 
 syncProject :: MonadIO m => Project -> m Project
