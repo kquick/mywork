@@ -326,8 +326,8 @@ handleMyWorkEvent = \case
                 )
       let postop = do handleConfirmation
                       handleNewProject
-                      prjs <- handleProjectChanges
-                      mbprj <- handleProjectChange prjs
+                      handleProjectChanges
+                      mbprj <- handleProjectChange
                       mbprj' <- handleLocationInput mbprj
                       mbloc <- handleLocationChange mbprj'
                       handleNoteInput mbprj' mbloc
@@ -376,8 +376,16 @@ handleConfirmation = do
        case confirmed of
          Nothing -> return ()
          Just (ConfirmProjectDelete pname) -> toFM $ DelProject pname
-         Just (ConfirmLocationDelete pname l) -> toFM $ DelLocation pname l
-         Just (ConfirmNoteDelete pname locn nt) -> toFM $ DelNote pname locn nt
+         Just (ConfirmLocationDelete pname l) ->
+           do toFM $ DelLocation pname l
+              p <- gets getCurrentProject -- updated by DelLocation above
+              modify (onPane @Location %~ updatePane p)
+         Just (ConfirmNoteDelete pname locn nt) ->
+           do toFM $ DelNote pname locn nt
+              cl <- gets getCurrentLocation -- updated by DelNote
+              let mbl = do (_,mbl') <- cl
+                           mbl'
+              modify (onPane @Note %~ updatePane mbl)
          Just (ConfirmLoad fp) -> do
            s <- get
            s' <- s & onPane @FileMgrPane %%~ fileMgrReadProjectsFile fp
@@ -397,7 +405,7 @@ handleNewProject = do
            modify $ onPane @FileMgrPane %~ updatePane (UpdProject mbOld newProj)
          Nothing -> return ()
 
-handleProjectChanges :: PostOpM Projects
+handleProjectChanges :: PostOpM ()
 handleProjectChanges = lift $ do
   (changed,prjs) <- gets getProjects
   case changed of
@@ -413,18 +421,16 @@ handleProjectChanges = lift $ do
                . (onPane @FileMgrPane %~ updatePane AckProjectChanges)
              )
     Right False -> return ()
-  return prjs
 
 
-handleProjectChange :: Projects -> PostOpM (Maybe Project)
-handleProjectChange prjs = do
-  pnm0 <- gets selectedProject
-  pnm <- gets (fmap fst . selectedLocation)
-  let mustUpdate = pnm /= pnm0
-  let p = DL.find ((== pnm0) . Just . name) (projects prjs)
-  when mustUpdate $ do modify $ onPane @Location %~ updatePane p
+handleProjectChange :: PostOpM (Maybe Project)
+handleProjectChange = do
+  mbp <- gets getCurrentProject -- from ProjList pane
+  pnm <- gets (fmap fst . selectedLocation) -- from Location pane
+  let mustUpdate = pnm /= (name <$> mbp)
+  when mustUpdate $ do modify $ onPane @Location %~ updatePane mbp
                        tell [True]
-  return p
+  return mbp
 
 handleLocationInput :: Maybe Project -> PostOpM (Maybe Project)
 handleLocationInput mbPrj = do
@@ -450,8 +456,8 @@ handleLocationChange :: Maybe Project -> PostOpM (Maybe Location)
 handleLocationChange = \case
   Nothing -> return Nothing
   Just p -> do
-    loc0 <- gets (fmap snd . selectedLocation)
-    loc1 <- gets (fmap fst . selectedNote)
+    loc0 <- gets (fmap snd . selectedLocation) -- Location pane
+    loc1 <- gets (fmap fst . selectedNote) -- Notes pane
     let mbl = DL.find ((== loc0) . Just . location) (locations p)
     unless (loc0 == loc1) $ do modify $ onPane @Note %~ updatePane mbl
                                tell [True]
