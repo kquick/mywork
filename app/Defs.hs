@@ -216,6 +216,7 @@ isLocationTextLocal t =
   not $ or [ "http://" `T.isPrefixOf` t
            , "https://" `T.isPrefixOf` t
            , "git@" `T.isPrefixOf` t
+           , ":/" `T.isInfixOf` t
            ]
 
 updateProject :: Maybe ProjectName -> Project -> Projects -> Projects
