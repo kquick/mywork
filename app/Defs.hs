@@ -223,6 +223,9 @@ updateProject onm p (Projects ps) =
   in Projects $ p' : other
 
 
+-- | Adds the specified Location to the Project, merging with the previous
+-- Location (with the same name or the previous name indicated by a Just in the
+-- the Maybe parameter).
 updateLocation :: Maybe LocationSpec -> Location -> Project -> Project
 updateLocation ol l p =
   let oldName = maybe (location l) id ol
@@ -282,6 +285,9 @@ instance Show Confirm where
       "Discard local changes and load projects from " <> show fp <> "?"
     ConfirmQuit -> "There are unsaved changes.  Are you sure you want to quit?"
 
+
+tshow :: Show a => a -> Text
+tshow = T.pack . show
 
 ----------------------------------------------------------------------
 

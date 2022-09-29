@@ -55,6 +55,7 @@ executable mywork
                     , aeson >= 2.1 && < 2.2
                     , bytestring >= 0.11 && < 0.12
                     , containers
+                    , ini >= 0.4 && < 0.5
                     , lens >= 5.1 && < 5.2
                     , mtl
                     , path >= 0.9 && < 0.10
@@ -63,5 +64,6 @@ executable mywork
                     , text
                     , text-zipper >= 0.12 && < 0.13
                     , time
+                    , unordered-containers >= 0.2 && < 0.3
                     , vector >= 0.13 && < 0.14
                     , vty >= 5.36 && < 5.37

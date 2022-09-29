@@ -435,9 +435,8 @@ handleLocationInput mbPrj = do
     then do (mbOldL, mbNewLoc) <- inpOp locationInputResults
             case (mbNewLoc, mbPrj) of
               (Just newLoc, Just p) -> do
-                locsts <- syncLocation newLoc
-                let p' = updateLocation mbOldL (applyLocSync locsts newLoc) p
-                    u = UpdProject Nothing p'
+                p' <- applyProjLocSync mbOldL p newLoc
+                let u = UpdProject Nothing p'
                 modify (   (onPane @FileMgrPane %~ updatePane u)
                          . (onPane @Location %~ updatePane (Just p'))
                        )
