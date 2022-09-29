@@ -371,7 +371,8 @@ handleConfirmation = do
   when deactivatedConfirmation $
     do (ps, confirmed) <- confirmOp getConfirmedAction
        modify $ onPane @Confirm .~ ps
-       let toFM msg = modify (onPane @FileMgrPane %~ updatePane msg)
+       let toFM msg = do modify (onPane @FileMgrPane %~ updatePane msg)
+                         tell [True]
        case confirmed of
          Nothing -> return ()
          Just (ConfirmProjectDelete pname) -> toFM $ DelProject pname
