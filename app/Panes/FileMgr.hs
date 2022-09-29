@@ -53,7 +53,7 @@ import           Sync
 
 data FileMgrPane
 
-data FileMgrOps = AckNewProjects
+data FileMgrOps = AckProjectChanges
                 | UpdProject (Maybe ProjectName) Project -- add/replace project
                 | DelProject ProjectName
                 | DelLocation ProjectName LocationSpec
@@ -66,7 +66,7 @@ instance Pane WName MyWorkEvent FileMgrPane FileMgrOps where
        , myProjects :: Projects
          -- ^ Current loaded set of projects
        , myProjFile :: Maybe (Path Abs File)
-       , newProjects :: Either Confirm Bool
+       , projsChanged :: Either Confirm Bool
          -- ^ True when myProjects has been updated; clear this via updatePane
        , unsavedChanges :: Bool
          -- ^ True when myProjects has been changed since the last load
@@ -113,13 +113,15 @@ instance Pane WName MyWorkEvent FileMgrPane FileMgrOps where
                  Nothing -> return ts
              _ -> return ts
   updatePane = \case
-    AckNewProjects -> \ps -> ps { newProjects = Right False, fmgrMsgs = mempty }
+    AckProjectChanges ->
+      \ps -> ps { projsChanged = Right False, fmgrMsgs = mempty }
     UpdProject mbOldNm prj ->
       (myProjectsL %~ updateProject mbOldNm prj)
-      . (newProjectsL .~ Right True)
+      . (projsChangedL .~ Right True)
       . (unsavedChangesL .~ True)
     DelProject pname ->
       (myProjectsL %~ Projects . filter ((/= pname) . name) . projects)
+      . (projsChangedL .~ Right True)
       . (unsavedChangesL .~ True)
     DelLocation pname locn ->
       let rmvLoc p = if name p == pname
@@ -127,6 +129,7 @@ instance Pane WName MyWorkEvent FileMgrPane FileMgrOps where
                      else p
           thisLoc = ((== locn) . location)
       in (myProjectsL %~ Projects . fmap rmvLoc . projects)
+         . (projsChangedL .~ Right True)
          . (unsavedChangesL .~ True)
     DelNote pname locn nt ->
       let rmvNote p = if name p == pname
@@ -137,6 +140,7 @@ instance Pane WName MyWorkEvent FileMgrPane FileMgrOps where
                        else l
           thisNote = ((== nt) . noteTitle)
       in (myProjectsL %~ Projects . fmap rmvNote . projects)
+         . (projsChangedL .~ Right True)
          . (unsavedChangesL .~ True)
 
 
@@ -149,8 +153,8 @@ myProjectsL f wc = (\n -> wc { myProjects = n }) <$> f (myProjects wc)
 myProjFileL :: Lens' (PaneState FileMgrPane MyWorkEvent) (Maybe (Path Abs File))
 myProjFileL f wc = (\n -> wc { myProjFile = n }) <$> f (myProjFile wc)
 
-newProjectsL :: Lens' (PaneState FileMgrPane MyWorkEvent) (Either Confirm Bool)
-newProjectsL f wc = (\n -> wc { newProjects = n }) <$> f (newProjects wc)
+projsChangedL :: Lens' (PaneState FileMgrPane MyWorkEvent) (Either Confirm Bool)
+projsChangedL f wc = (\n -> wc { projsChanged = n }) <$> f (projsChanged wc)
 
 unsavedChangesL :: Lens' (PaneState FileMgrPane MyWorkEvent) Bool
 unsavedChangesL = lens unsavedChanges (\wc n -> wc { unsavedChanges = n })
@@ -187,7 +191,7 @@ instance ( PanelOps FileMgrPane WName MyWorkEvent panes MyWorkCore
   getProjects = getProjects . view (onPane @FileMgrPane)
 
 instance HasProjects (PaneState FileMgrPane MyWorkEvent) where
-  getProjects ps = (newProjects ps, myProjects ps)
+  getProjects ps = (projsChanged ps, myProjects ps)
 
 
 drawFB :: DrawConstraints FileMgrPane drawstate WName
@@ -262,7 +266,7 @@ handleFileLoadEvent ev ts =
                   Just fp -> if unsavedChanges ts
                              then let msg = ConfirmLoad fp
                                   in return $ ts
-                                     & newProjectsL .~ Left msg
+                                     & projsChangedL .~ Left msg
                                      & fBrowser .~ Nothing
                              else (fBrowser .~ Nothing)
                                   <$> fileMgrReadProjectsFile fp ts
@@ -373,7 +377,7 @@ fileMgrReadProjectsFile fp ps = readProjectsFile fp >>= \case
   Right prjs -> return $ ps
                 & myProjectsL .~ prjs
                 & myProjFileL .~ Just fp
-                & newProjectsL .~ Right True
+                & projsChangedL .~ Right True
                 & unsavedChangesL .~ False
                 & exitMsgsL <>~ [ withAttr a'Notice $ str $ "Loaded " <> show fp ]
 

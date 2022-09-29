@@ -326,7 +326,7 @@ handleMyWorkEvent = \case
                 )
       let postop = do handleConfirmation
                       handleNewProject
-                      prjs <- handleNewProjects
+                      prjs <- handleProjectChanges
                       mbprj <- handleProjectChange prjs
                       mbprj' <- handleLocationInput mbprj
                       mbloc <- handleLocationChange mbprj'
@@ -396,20 +396,20 @@ handleNewProject = do
            modify $ onPane @FileMgrPane %~ updatePane (UpdProject mbOld newProj)
          Nothing -> return ()
 
-handleNewProjects :: PostOpM Projects
-handleNewProjects = lift $ do
-  (new,prjs) <- gets getProjects
-  case new of
+handleProjectChanges :: PostOpM Projects
+handleProjectChanges = lift $ do
+  (changed,prjs) <- gets getProjects
+  case changed of
     Left cnfrm -> do modify $ \s ->
                        if not $ s ^. onPane @Confirm . to isConfirmationActive
                        then s
                             & onPane @Confirm %~ showConfirmation cnfrm
-                            & onPane @FileMgrPane %~ updatePane AckNewProjects
+                            & onPane @FileMgrPane %~ updatePane AckProjectChanges
                             & focusRingUpdate myWorkFocusL
                        else s
     Right True ->
       modify (   (onPane @Projects %~ updatePane prjs)
-               . (onPane @FileMgrPane %~ updatePane AckNewProjects)
+               . (onPane @FileMgrPane %~ updatePane AckProjectChanges)
              )
     Right False -> return ()
   return prjs
