@@ -20,14 +20,17 @@ import qualified Data.Text as T
 import qualified Data.Text.IO as TIO
 import           Data.Time.Calendar ( Day )
 import           Data.Time.Clock ( getCurrentTime, utctDay )
-import           Path ( (</>), relfile, toFilePath, parseAbsDir )
-import           Path.IO ( doesDirExist, doesFileExist, getModificationTime )
+import           Path ( (</>), Path, Abs, Dir, relfile, reldir
+                      , toFilePath, parseAbsDir, fileExtension )
+import           Path.IO ( doesDirExist, doesFileExist, getModificationTime
+                         , listDir )
 
 import           Defs
 
 
 data LocationStatus = LocationStatus { locExists :: Maybe Bool
                                      , otherLocs :: [ (LType, LocationSpec) ]
+                                     , locNotes :: [ Note ]
                                      , lastUpd :: Maybe Day
                                      }
 
@@ -67,14 +70,36 @@ syncLocation l = case location l of
                               Left _e -> return mempty -- no error reporting
                               Right gc -> return $ gcProc gc
                     else return mempty
+       nts <- getLocNotes lcl
        return $ LocationStatus { locExists = Just e
                                , otherLocs = o
+                               , locNotes = nts
                                , lastUpd = u
                                }
   RemoteSpec _ -> return LocationStatus { locExists = Nothing
                                         , otherLocs = mempty
+                                        , locNotes = mempty
                                         , lastUpd = Nothing
                                         }
+
+getLocNotes :: MonadIO m => Path Abs Dir -> m [ Note ]
+getLocNotes lcl =
+  let notesDir = lcl </> [reldir|@MyWork|]
+      mkFileNote nl f =
+        case fileExtension f of
+          Just ".txt" ->
+            do nt <- liftIO $ TIO.readFile (toFilePath f)
+               nd <- utctDay <$> liftIO ( getModificationTime f)
+               return $ Note { note = nt
+                             , notedOn = nd
+                             , noteSource = ProjLoc
+                             } : nl
+          _ -> return nl
+  in do ne <- liftIO (doesDirExist notesDir)
+        if ne
+          then do (_,files) <- liftIO (listDir notesDir)
+                  foldM mkFileNote mempty files
+          else return mempty
 
 
 applyLocSync :: Day -> LocationStatus -> Location -> Location
@@ -95,8 +120,9 @@ applyLocSync now locsts loc =
         in case DL.find ((noteTitle' rnt ==) . noteTitle) (notes cl) of
              Nothing -> cl { notes = rn : notes cl }
              Just _ -> cl
-      loc' = foldr addRmtNoteText loc $ otherLocs locsts
-  in loc' { locValid = maybe True id $ locExists locsts
+      loc1 = foldr addRmtNoteText loc $ otherLocs locsts
+      loc2 = foldr (updateLocNote Nothing) loc1 $ locNotes locsts
+  in loc2 { locValid = maybe True id $ locExists locsts
           , locatedOn = lastUpd locsts <|> locatedOn loc
           }
 

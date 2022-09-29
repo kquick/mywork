@@ -238,12 +238,16 @@ updateLocation ol l p =
   in p { locations = l' : other }
 
 
+updateLocNote :: Maybe NoteTitle -> Note -> Location -> Location
+updateLocNote oldn n l =
+  let oldName = maybe (noteTitle n) id oldn
+  in l { notes = n : filter ((/= oldName) . noteTitle) (notes l) }
+
+
 updateNote :: Maybe NoteTitle -> Note -> Location -> Project
            -> (Project, Location)
-updateNote oldn n l p =
-  let oldName = maybe (noteTitle n) id oldn
-      newL = l { notes = n : filter ((/= oldName) . noteTitle) (notes l) }
-  in (updateLocation Nothing newL p, newL)
+updateNote oldn n l p = let newL = updateLocNote oldn n l
+                        in (updateLocation Nothing newL p, newL)
 
 
 data OpOn = ProjectOp | LocationOp | NoteOp
