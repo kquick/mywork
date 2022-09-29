@@ -35,9 +35,11 @@ instance Pane WName MyWorkEvent Note (Maybe Location) where
     let l = N (list (WName "Notes:List") mempty 1) Nothing
     in flip updatePane l $ join $ snd <$> getCurrentLocation gs
   updatePane mbl ps =
-    let nl =
+    let curElem = maybe id listMoveTo $ listSelected $ nL ps
+        nl =
           case mbl of
-            Just l -> listReplace (V.fromList $ sortNotes $ notes l) (Just 0)
+            Just l -> curElem
+                      . listReplace (V.fromList $ sortNotes $ notes l) (Just 0)
             Nothing -> listReplace mempty Nothing
         sortNotes = DL.reverse . DL.sort -- most recent first
     in N (nl (nL ps)) mbl

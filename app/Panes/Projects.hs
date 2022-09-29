@@ -60,13 +60,13 @@ instance Pane WName MyWorkEvent Projects Projects where
                   np = if null nc then Nothing else Just 0
               in return $ ps2 & pList %~ listReplace (V.fromList nc) np
   focusable _ _ = Seq.singleton WProjList
-  updatePane newprjs =
+  updatePane newprjs ps =
     let oc = DL.sort (mkListEnt <$> projects newprjs)
-    in (pList %~ listReplace (V.fromList oc) (Just 0))
-       .
-       (pSrch . editContentsL %~ TZ.clearZipper)
-       .
-       (pOrig .~ oc)
+        curElem = maybe id listMoveTo $ listSelected $ pL ps
+    in ps
+       & pList %~ (curElem . listReplace (V.fromList oc) (Just 0))
+       & pSrch . editContentsL %~ TZ.clearZipper
+       & pOrig .~ oc
 
 
 pList :: Lens' (PaneState Projects MyWorkEvent) (List WName (Role, ProjectName))

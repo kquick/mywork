@@ -52,11 +52,14 @@ instance Pane WName MyWorkEvent Location (Maybe Project) where
   handlePaneEvent _ ev = lList %%~ \w -> nestEventM' w (handleListEvent ev)
   updatePane = \case
     Nothing -> (lList %~ listReplace mempty Nothing) . (lProj .~ Nothing)
-    Just prj -> let ents = [ (location l, locValid l, locatedOn l)
-                           | l <- locations prj ]
-                    np = if null ents then Nothing else Just 0
-                in (lList %~ listReplace (V.fromList $ DL.sort ents) np)
-                   . (lProj .~ Just prj)
+    Just prj -> \ps ->
+      let ents = [ (location l, locValid l, locatedOn l)
+                 | l <- locations prj ]
+          np = if null ents then Nothing else Just 0
+          curElem = maybe id listMoveTo $ listSelected $ lL ps
+      in ps
+         & lList %~ (curElem . listReplace (V.fromList $ DL.sort ents) np)
+         & lProj .~ Just prj
 
 
 lList :: Lens' (PaneState Location MyWorkEvent)
