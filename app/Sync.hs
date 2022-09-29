@@ -6,14 +6,11 @@ module Sync
   -- )
 where
 
--- KWQ: location should be Path, not Text
-
 import           Control.Applicative ( (<|>) )
 import           Control.Monad.IO.Class ( MonadIO, liftIO )
-import qualified Data.Text as T
 import           Data.Time.Calendar ( Day )
 import           Data.Time.Clock ( utctDay )
-import           System.Directory ( doesDirectoryExist, getModificationTime )
+import           Path.IO ( doesDirExist, getModificationTime )
 
 import           Defs
 
@@ -24,16 +21,16 @@ data LocationStatus = LocationStatus { locExists :: Maybe Bool
 
 
 syncLocation :: MonadIO m => Location -> m LocationStatus
-syncLocation l =
-  if isLocationLocal l
-  then do let LocationSpec lt = location l
-          e <- liftIO $ doesDirectoryExist (T.unpack lt)
-          u <- if e
-               then Just . utctDay
-                    <$> liftIO (getModificationTime (T.unpack lt))
-               else return Nothing
-          return $ LocationStatus { locExists = Just e, lastUpd = u }
-  else return LocationStatus { locExists = Nothing, lastUpd = Nothing }
+syncLocation l = case location l of
+  LocalSpec lcl ->
+    do e <- liftIO $ doesDirExist lcl
+       u <- if e
+            then Just . utctDay <$> liftIO (getModificationTime lcl)
+            else return Nothing
+       return $ LocationStatus { locExists = Just e, lastUpd = u }
+  RemoteSpec _ -> return LocationStatus { locExists = Nothing
+                                        , lastUpd = Nothing
+                                        }
 
 
 applyLocSync :: LocationStatus -> Location -> Location

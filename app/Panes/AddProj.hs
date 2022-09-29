@@ -54,7 +54,7 @@ makeLenses ''NewProj
 
 blankNewProj :: NewProj
 blankNewProj = NewProj (ProjectName "") User (Just Personal) "" (Right C)
-               "" "" (LocationSpec "") Nothing
+               "" "" (RemoteSpec "") Nothing
 
 type ProjForm = Form NewProj MyWorkEvent WName
 
@@ -98,16 +98,16 @@ instance Pane WName MyWorkEvent AddProjPane () where
                                 r@(Right _) -> r
                                 Left _ -> Left $ form ^. npLangT
                             , description = form ^. npDesc
-                            , locations = let LocationSpec ls = form ^. npLoc
-                                          in if T.null ls
-                                          then mempty
-                                          else [ Location
-                                                 { location = form ^. npLoc
-                                                 , locatedOn = form ^. npLocDate
-                                                 , locValid = True -- assumed
-                                                 , notes = mempty
-                                                 }
-                                               ]
+                            , locations =
+                                case form ^. npLoc of
+                                  RemoteSpec rs | T.null rs -> mempty
+                                  _ -> [ Location
+                                         { location = form ^. npLoc
+                                         , locatedOn = form ^. npLocDate
+                                         , locValid = True -- assumed
+                                         , notes = mempty
+                                         }
+                                       ]
                             }
       in if maybe False allFieldsValid pf
          then do let p0 = np . formState <$> pf
@@ -253,7 +253,7 @@ initAddProj prjs mbProj ps =
                                                 Right _ -> ""
                                                 Left t -> t
                                  , _npDesc = description p
-                                 , _npLoc = LocationSpec ""
+                                 , _npLoc = RemoteSpec ""
                                  , _npLocDate = Nothing
                                  }
             )

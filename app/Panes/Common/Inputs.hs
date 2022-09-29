@@ -18,8 +18,8 @@ import qualified Data.List as DL
 import           Data.Text ( Text )
 import qualified Data.Text as T
 import           Data.Time.Calendar ( Day, fromGregorianValid )
-import           System.Directory ( doesDirectoryExist )
-import           System.FilePath ( isValid, isRelative, normalise )
+import           Path ( parseAbsDir )
+import           Path.IO ( doesDirExist, doesDirExist )
 import           Text.Read ( readMaybe )
 
 import           Defs
@@ -63,32 +63,41 @@ locationInput :: [Location]
               -> FormFieldState s e WName
 locationInput locs mbLoc blankAllowed stateLens =
   let validate = \case
-        [] -> if blankAllowed then Just (LocationSpec "") else Nothing
-        (l:_) -> let ls = LocationSpec l
-                 in if or [ and [ ls `elem` (location <$> locs)
-                             , maybe True ((ls /=) . location) mbLoc
-                             ]
-                       , and [ not blankAllowed
-                             , or [ not (isValid (T.unpack l))
-                                  , isLocationLocal' ls && isRelative (T.unpack l)
-                                  ]
-                             ]
-                       ]
-                 then Nothing  -- invalid
-                 else Just $ LocationSpec $ T.pack $ normalise $ T.unpack l
+        [] -> if blankAllowed
+              then Just (RemoteSpec "")
+              else Nothing
+        (l:_) ->
+          let lr = RemoteSpec l
+              ll = parseAbsDir $ T.unpack l
+              ls = T.unpack l
+          in if or
+                [
+                  -- Should not match any existing location
+                  and [ ls `elem` (show . location <$> locs)
+                      , maybe True ((ls /=) . show . location) mbLoc
+                      ]
+
+                  -- Check blank v.s. allowed and should be an absolute path if
+                  -- it looks like a local path
+                , and [ not blankAllowed
+                      , maybe (isLocationTextLocal (T.pack ls)) (const False) ll
+                      ]
+                ]
+             then Nothing  -- invalid
+             else Just $ maybe lr LocalSpec ll
   in editField stateLens (WName "New Location") (Just 1)
-     (\(LocationSpec ls) -> ls) validate (txt . headText) id
+     (T.pack . show) validate (txt . headText) id
 
 
 validateLocationInput :: MonadIO m => Bool -> LocationSpec -> m (WName, Bool)
 validateLocationInput blankAllowed l =
   let tgt = WName "New Location"
-      LocationSpec ls = l
+      ls = T.pack $ show l
   in if blankAllowed && T.null ls
      then return (tgt, True)
-     else if isLocationLocal' l
-          then (tgt,) <$> (liftIO $ doesDirectoryExist $ T.unpack ls)
-          else return (tgt, True)
+     else case l of
+            LocalSpec lp -> (tgt,) <$> (liftIO $ doesDirExist lp)
+            RemoteSpec _ -> return (tgt, True)
 
 
 mbDateInput :: Lens' s (Maybe Day)

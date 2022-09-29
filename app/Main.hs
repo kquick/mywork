@@ -28,7 +28,7 @@ import           Graphics.Vty ( defAttr, withStyle, defaultStyleMask
                               , bold, reverseVideo, dim, underline
                               , black, white, yellow, red, green, cyan, rgbColor )
 import qualified Graphics.Vty as Vty
-import           System.Directory ( setCurrentDirectory )
+import           Path.IO ( setCurrentDir )
 
 import           Defs
 import           Panes.AddProj
@@ -87,10 +87,12 @@ main = do i <- initialState & onPane @FileMgrPane %%~ initFileMgr
                  putStrLn $ T.unpack $ pnm <> ": " <> description p
                  case mbl of
                    Nothing -> return ()
-                   Just l -> do
-                     let LocationSpec ls = location l
-                     putStrLn $ T.unpack ls
-                     setCurrentDirectory $ T.unpack ls
+                   Just l ->
+                     case location l of
+                       RemoteSpec r ->
+                         putStrLn $ "Remote location: " <> T.unpack r
+                       LocalSpec d -> do putStrLn $ show d
+                                         setCurrentDir d
             Nothing -> return ()
 
 

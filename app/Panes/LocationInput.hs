@@ -45,7 +45,7 @@ makeLenses ''NewLoc
 
 
 blankNewLoc :: NewLoc
-blankNewLoc = NewLoc (LocationSpec "") Nothing
+blankNewLoc = NewLoc (RemoteSpec "") Nothing
 
 type LocForm = Form NewLoc MyWorkEvent WName
 

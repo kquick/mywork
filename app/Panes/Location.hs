@@ -38,7 +38,7 @@ instance Pane WName MyWorkEvent Location (Maybe Project) where
     let isFcsd = gs^.getFocus.to focused == Just WLocations
         rndr (l,v,d) =
           let lattr = if v then id else withAttr a'Error
-          in (lattr (let LocationSpec lt = l in txt lt)
+          in (lattr (str $ show $ l)
               <+> vLimit 1 (fill ' ')
               <+> (if v
                     then str $ maybe "*" show d

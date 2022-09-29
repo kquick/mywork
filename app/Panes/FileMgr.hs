@@ -3,6 +3,7 @@
 {-# LANGUAGE LambdaCase #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE QuasiQuotes #-}
 {-# LANGUAGE TypeApplications #-}
 {-# LANGUAGE TypeFamilies #-}
 {-# LANGUAGE TypeSynonymInstances #-}
@@ -31,15 +32,19 @@ import qualified Control.Exception as X
 import           Control.Lens
 import           Control.Monad ( unless )
 import           Control.Monad.IO.Class ( MonadIO, liftIO )
-import           Data.Aeson ( ToJSON, FromJSON, eitherDecode, encode, toJSON
+import           Data.Aeson ( ToJSON, FromJSON , eitherDecode, encode, toJSON
+                            , genericParseJSON, defaultOptions, genericToJSON
+                            , SumEncoding(UntaggedValue), sumEncoding, Options
                             , parseJSON, withObject, (.:), (.:?), (.!=) )
 import qualified Data.ByteString.Lazy as BS
 import           Data.Maybe ( catMaybes )
 import           Data.Maybe ( isJust )
 import qualified Data.Sequence as Seq
 import qualified Graphics.Vty as Vty
-import qualified System.Directory as D
-import           System.FilePath ( (</>), takeDirectory )
+import           Path ( Path, Abs, File, (</>), parseAbsFile
+                      , relfile, reldir, parent, toFilePath )
+import           Path.IO ( createDirIfMissing, doesFileExist
+                         , XdgDirectory(XdgData), getXdgDir )
 
 import           Defs
 import           Panes.Common.Attrs
@@ -60,7 +65,7 @@ instance Pane WName MyWorkEvent FileMgrPane FileMgrOps where
          -- ^ A Nothing value indicates the modal is not currently active
        , myProjects :: Projects
          -- ^ Current loaded set of projects
-       , myProjFile :: FilePath
+       , myProjFile :: Maybe (Path Abs File)
        , newProjects :: Either Confirm Bool
          -- ^ True when myProjects has been updated; clear this via updatePane
        , unsavedChanges :: Bool
@@ -72,15 +77,15 @@ instance Pane WName MyWorkEvent FileMgrPane FileMgrOps where
        }
   type (DrawConstraints FileMgrPane s WName) = ( HasFocus s WName )
   type (EventConstraints FileMgrPane e) = ( HasFocus e WName )
-  initPaneState _ = FB Nothing (Projects mempty) "" (Right False) False "" mempty
+  initPaneState _ = FB Nothing (Projects mempty) Nothing (Right False)
+                    False "" mempty
   drawPane ps gs = drawFB ps gs <$> fB ps
   focusable _ ps = case fB ps of
                      Nothing -> mempty
                      Just _ -> Seq.fromList $ catMaybes
                                [
                                  Just $ WName "FMgr:Browser"
-                               , if null $ myProjFile ps then Nothing
-                                 else Just $ WName "FMgr:SaveBtn"
+                               , const (WName "FMgr:SaveBtn") <$> myProjFile ps
                                , if isDirSelected ps
                                  then Nothing
                                  else Just $ WName "FMgr:SaveAsBtn"
@@ -90,8 +95,11 @@ instance Pane WName MyWorkEvent FileMgrPane FileMgrOps where
     in case ev of
       Vty.EvKey Vty.KEsc [] | not isSearching -> return $ ts & fBrowser .~ Nothing
       Vty.EvKey (Vty.KChar 's') [Vty.MCtrl] -> do
-        ts' <- fileMgrSaveProjectsFile (myProjFile ts) ts
-        -- Ctrl-S dismisses the FileMgr window, even on failure
+        ts' <- case myProjFile ts of
+          Just fp -> fileMgrSaveProjectsFile fp ts
+          Nothing ->
+            -- Ctrl-S dismisses the FileMgr window, even on failure
+            return ts
         return $ ts'
           & exitMsgsL <>~ (if null (ts ^. errMsgL) then []
                            else [ withAttr a'Error $ str $ ts ^. errMsgL])
@@ -100,7 +108,9 @@ instance Pane WName MyWorkEvent FileMgrPane FileMgrOps where
              Focused (Just (WName "FMgr:Browser")) -> handleFileLoadEvent ev ts
              Focused (Just (WName "FMgr:SaveAsBtn")) -> handleFileSaveEvent ev ts
              Focused (Just (WName "FMgr:SaveBtn")) ->
-               fileMgrSaveProjectsFile (myProjFile ts) ts
+               case myProjFile ts of
+                 Just fp -> fileMgrSaveProjectsFile fp ts
+                 Nothing -> return ts
              _ -> return ts
   updatePane = \case
     AckNewProjects -> \ps -> ps { newProjects = Right False, fmgrMsgs = mempty }
@@ -136,7 +146,7 @@ fBrowser f ps = (\n -> ps { fB = n }) <$> f (fB ps)
 myProjectsL :: Lens' (PaneState FileMgrPane MyWorkEvent) Projects
 myProjectsL f wc = (\n -> wc { myProjects = n }) <$> f (myProjects wc)
 
-myProjFileL :: Lens' (PaneState FileMgrPane MyWorkEvent) FilePath
+myProjFileL :: Lens' (PaneState FileMgrPane MyWorkEvent) (Maybe (Path Abs File))
 myProjFileL f wc = (\n -> wc { myProjFile = n }) <$> f (myProjFile wc)
 
 newProjectsL :: Lens' (PaneState FileMgrPane MyWorkEvent) (Either Confirm Bool)
@@ -219,7 +229,9 @@ drawFB ps ds b =
                            then withAttr a'Selected
                            else if null f then withAttr a'Disabled else id
                        f = myProjFile ps
-                       btxt = if null f then " " else "[SAVE] " <> f
+                       btxt = case f of
+                                Nothing -> " "
+                                Just x -> "[SAVE] " <> show x
                    in a $ str btxt
                  , if isDir
                    then withAttr a'Disabled $ str "[SAVE]"
@@ -246,17 +258,18 @@ handleFileLoadEvent ev ts =
             case fileBrowserCursor b of
               Nothing -> return $ ts & fBrowser .~ Just b  -- navigation
               Just f ->
-                let fp = fileInfoFilePath f
-                in liftIO $ D.doesDirectoryExist fp >>= \e ->
-                  if e
-                  then return $ ts & fBrowser .~ Just b
-                  else if unsavedChanges ts
-                       then let msg = ConfirmLoad fp
-                            in return $ ts
-                               & newProjectsL .~ Left msg
-                               & fBrowser .~ Nothing
-                       else (fBrowser .~ Nothing)
-                            <$> fileMgrReadProjectsFile fp ts
+                case parseAbsFile $ fileInfoFilePath f of
+                  Just fp -> if unsavedChanges ts
+                             then let msg = ConfirmLoad fp
+                                  in return $ ts
+                                     & newProjectsL .~ Left msg
+                                     & fBrowser .~ Nothing
+                             else (fBrowser .~ Nothing)
+                                  <$> fileMgrReadProjectsFile fp ts
+                  Nothing ->
+                    -- Current selection is a directory; cannot load a directory,
+                    -- so just allow the fBrowser to change to that directory.
+                    return $ ts & fBrowser .~ Just b
       case ev of
         Vty.EvKey Vty.KEnter [] -> selectFile
         Vty.EvKey (Vty.KChar ' ') [] -> selectFile -- override filebrowser's default multi-select ability
@@ -276,11 +289,15 @@ handleFileSaveEvent ev ts =
         Vty.EvKey (Vty.KChar ' ') [] -> doSave f
         _ -> return ts
   where
-    doSave f = fileMgrSaveProjectsFile (fileInfoFilePath f) ts
+    doSave f = case parseAbsFile $ fileInfoFilePath f of
+                 Just fp -> fileMgrSaveProjectsFile fp ts
+                 Nothing -> return $ ts & errMsgL .~ dirErr
+    dirErr = "Cannot save to a directory: please select a file"
 
 
 instance ToJSON ProjectName where toJSON (ProjectName pnm) = toJSON pnm
-instance ToJSON LocationSpec where toJSON (LocationSpec lcn) = toJSON lcn
+instance ToJSON LocationSpec where
+  toJSON = genericToJSON locationSpecOptions
 instance ToJSON Projects
 instance ToJSON Project
 instance ToJSON Group
@@ -290,7 +307,8 @@ instance ToJSON Location
 instance ToJSON Note
 
 instance FromJSON ProjectName where parseJSON = fmap ProjectName . parseJSON
-instance FromJSON LocationSpec where parseJSON = fmap LocationSpec . parseJSON
+instance FromJSON LocationSpec where
+  parseJSON = genericParseJSON locationSpecOptions
 instance FromJSON Projects
 instance FromJSON Project where
   parseJSON = withObject "Project" $ \v -> Project
@@ -311,15 +329,19 @@ instance FromJSON Location where
     <*> v .:? "locValid" .!= True -- assumed -- Added in v0.1.1.0
     <*> v .: "notes"
 instance FromJSON Note
--- deriving via Generically Note instance ToJSON Note
 
-ensureDefaultProjectFile :: IO FilePath
+
+locationSpecOptions :: Options
+locationSpecOptions = defaultOptions { sumEncoding = UntaggedValue }
+
+
+ensureDefaultProjectFile :: IO (Path Abs File)
 ensureDefaultProjectFile = do
-  dataDir <- D.getXdgDirectory D.XdgData "mywork"
-  D.createDirectoryIfMissing True dataDir
-  let pFile = dataDir </> "projects.json"
-  e <- D.doesFileExist pFile
-  unless e $ BS.writeFile pFile ""
+  dataDir <- getXdgDir XdgData $ Just [reldir|mywork|]
+  createDirIfMissing True dataDir
+  let pFile = dataDir </> [relfile|projects.json|]
+  e <- doesFileExist pFile
+  unless e $ BS.writeFile (toFilePath pFile) ""
   return pFile
 
 
@@ -335,43 +357,38 @@ initFileMgr ps = do
   return ps'
 
 
-readProjectsFile :: MonadIO m => FilePath -> m (Either String Projects)
+readProjectsFile :: MonadIO m => Path Abs File -> m (Either String Projects)
 readProjectsFile fp = do
-  newprjs <- eitherDecode <$> liftIO (BS.readFile fp)
+  newprjs <- eitherDecode <$> liftIO (BS.readFile $ toFilePath fp)
   case newprjs of
     Right prjs -> Right . Projects <$> mapM syncProject (projects prjs)
     e@(Left _) -> return e
 
 fileMgrReadProjectsFile :: MonadIO m
-                        => FilePath
+                        => Path Abs File
                         -> PaneState FileMgrPane MyWorkEvent
                         -> m (PaneState FileMgrPane MyWorkEvent)
 fileMgrReadProjectsFile fp ps = readProjectsFile fp >>= \case
   Left er -> return $ ps & errMsgL .~ er
   Right prjs -> return $ ps
                 & myProjectsL .~ prjs
-                & myProjFileL .~ fp
+                & myProjFileL .~ Just fp
                 & newProjectsL .~ Right True
                 & unsavedChangesL .~ False
-                & exitMsgsL <>~ [ withAttr a'Notice $ str $ "Loaded " <> fp ]
+                & exitMsgsL <>~ [ withAttr a'Notice $ str $ "Loaded " <> show fp ]
 
 
 fileMgrSaveProjectsFile :: MonadIO m
-                        => FilePath
+                        => Path Abs File
                         -> PaneState FileMgrPane MyWorkEvent
                         -> m (PaneState FileMgrPane MyWorkEvent)
 fileMgrSaveProjectsFile fp ps =
-  if null fp
-  then return $ ps & errMsgL .~ "Specify filename for save"
-  else liftIO (D.doesDirectoryExist fp) >>= \case
-    True ->
-      return $ ps & errMsgL .~ "Cannot save to a directory: please select a file"
-    False -> do liftIO $ BS.writeFile fp (encode $ myProjects ps)
-                return $ ps
-                  & fBrowser .~ Nothing
-                  & myProjFileL .~ fp
-                  & unsavedChangesL .~ False
-                  & exitMsgsL <>~ [ withAttr a'Notice $ str $ "Wrote " <> fp ]
+  do liftIO $ BS.writeFile (toFilePath fp) (encode $ myProjects ps)
+     return $ ps
+       & fBrowser .~ Nothing
+       & myProjFileL .~ Just fp
+       & unsavedChangesL .~ False
+       & exitMsgsL <>~ [ withAttr a'Notice $ str $ "Wrote " <> show fp ]
 
 -- | Called to display the FileMgr modal pane to allow the user to Load or Save.
 showFileMgr :: PaneState FileMgrPane MyWorkEvent
@@ -381,6 +398,6 @@ showFileMgr prev =
     Just _ -> return prev
     Nothing -> do
       let n = WName "FMgr:Browser"
-      dataDir <- takeDirectory <$> ensureDefaultProjectFile
-      fb <- newFileBrowser selectNonDirectories n (Just dataDir)
+      dataDir <- parent <$> ensureDefaultProjectFile
+      fb <- newFileBrowser selectNonDirectories n (Just $ toFilePath dataDir)
       return $ prev & fBrowser .~ Just fb

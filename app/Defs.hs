@@ -21,6 +21,7 @@ import           Data.Text ( Text, pack, unpack )
 import qualified Data.Text as T
 import           Data.Time.Calendar
 import           GHC.Generics ( Generic )
+import           Path ( Path, Abs, Dir, File, toFilePath )
 
 
 newtype Projects = Projects { projects :: [Project] }
@@ -46,7 +47,14 @@ data Role = Author | Maintainer | Contributor | User
 data Language = Haskell | Rust | C | CPlusPlus | Python | JavaScript
   deriving (Show, Eq, Generic)
 
-newtype LocationSpec = LocationSpec Text deriving Eq
+data LocationSpec = LocalSpec (Path Abs Dir)
+                  | RemoteSpec Text
+                  deriving (Eq, Generic)
+
+instance Show LocationSpec where
+  show = \case
+    LocalSpec p -> toFilePath p
+    RemoteSpec r -> T.unpack r
 
 data Location = Location { location :: LocationSpec
                          , locatedOn :: Maybe Day
@@ -191,10 +199,15 @@ isLocationLocal :: Location -> Bool
 isLocationLocal = isLocationLocal' . location
 
 isLocationLocal' :: LocationSpec -> Bool
-isLocationLocal' (LocationSpec l) =
-  not $ or [ "http://" `T.isPrefixOf` l
-           , "https://" `T.isPrefixOf` l
-           , "git@" `T.isPrefixOf` l
+isLocationLocal' = \case
+  LocalSpec _ -> True
+  RemoteSpec _ -> False
+
+isLocationTextLocal :: Text -> Bool
+isLocationTextLocal t =
+  not $ or [ "http://" `T.isPrefixOf` t
+           , "https://" `T.isPrefixOf` t
+           , "git@" `T.isPrefixOf` t
            ]
 
 updateProject :: Maybe ProjectName -> Project -> Projects -> Projects
@@ -240,7 +253,7 @@ opOnSelection s =
 data Confirm = ConfirmProjectDelete ProjectName
              | ConfirmLocationDelete ProjectName LocationSpec
              | ConfirmNoteDelete ProjectName LocationSpec NoteTitle
-             | ConfirmLoad String -- filepath
+             | ConfirmLoad (Path Abs File)
              | ConfirmQuit
 
 -- The Show instance for Confirm is the message presented to the user in the
@@ -253,15 +266,13 @@ instance Show Confirm where
          <> " and all associated locations and notes?"
     ConfirmLocationDelete pname locn ->
       let ProjectName pnm = pname
-          LocationSpec lspec = locn
-      in "Are you sure you want to remove location " <> show lspec
+      in "Are you sure you want to remove location " <> show locn
          <> " from project " <> show pnm <> "?"
     ConfirmNoteDelete pname locn nt ->
       let ProjectName pnm = pname
-          LocationSpec lspec = locn
           NoteTitle ntitle = nt
       in "Remove the following note from project " <> show pnm
-         <> ", location " <> show lspec <> "?\n\n  " <> show ntitle
+         <> ", location " <> show locn <> "?\n\n  " <> show ntitle
     ConfirmLoad fp ->
       "Discard local changes and load projects from " <> show fp <> "?"
     ConfirmQuit -> "There are unsaved changes.  Are you sure you want to quit?"
