@@ -23,7 +23,6 @@ instance Pane WName MyWorkEvent OperationsPane () where
   type (DrawConstraints OperationsPane s WName) = ( HasSelection s
                                                   , HasProjects s
                                                   , HasLocation s
-                                                  , HasMessage s
                                                   , HasFocus s WName
                                                   )
   initPaneState _ = Unused
@@ -51,8 +50,4 @@ instance Pane WName MyWorkEvent OperationsPane () where
               , Just $ str "F9 Load/Save"
               -- , Just $ str $ "C-q Quit"
               ]
-    in Just $ vBox
-       $ getMessage gs <>
-       [
-         vLimit 1 $ str " " <+> hBox ops <+> str " "
-       ]
+    in Just $ vLimit 1 $ str " " <+> hBox ops <+> str " "

@@ -41,6 +41,7 @@ executable mywork
                       Panes.Help
                       Panes.Location
                       Panes.LocationInput
+                      Panes.Messages
                       Panes.Operations
                       Panes.Projects
                       Panes.ProjInfo

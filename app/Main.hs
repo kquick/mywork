@@ -37,6 +37,7 @@ import           Panes.FileMgr
 import           Panes.Help
 import           Panes.Location ()
 import           Panes.LocationInput
+import           Panes.Messages
 import           Panes.NoteInput
 import           Panes.Notes ()
 import           Panes.Operations
@@ -60,6 +61,7 @@ type MyWorkState = Panel WName MyWorkEvent MyWorkCore
                     , FileMgrPane
                     , Confirm
                     , HelpPane
+                    , MessagesPane
                     ]
 
 initialState :: MyWorkState
@@ -76,6 +78,7 @@ initialState = focusRingUpdate myWorkFocusL
                $ addToPanel WhenFocusedModal
                $ addToPanel WhenFocusedModalHandlingAllEvents
                $ addToPanel WhenFocusedModal
+               $ addToPanel Never
                $ basePanel initMyWorkCore
 
 main :: IO ()
@@ -163,6 +166,7 @@ drawMyWork mws =
                  ]
             ]
           , Just hBorder
+          , panelDraw @MessagesPane mws
           , panelDraw @OperationsPane mws
           ]
         ]
@@ -319,10 +323,10 @@ handleMyWorkEvent = \case
       (t,s') <- handleFocusAndPanelEvents myWorkFocusL s ev
       put s'
       when (exitedModal @FileMgrPane t s') $
-             let fmn = (panelState @FileMgrPane s') ^. fileMgrNotices
+             let fmn = Just $ (panelState @FileMgrPane s') ^. fileMgrNotices
              in modify
                 (   (onPane @FileMgrPane . fileMgrNotices .~ mempty)
-                  . (onBaseState . messagesL <>~ fmn)
+                  . (onPane @MessagesPane %~ updatePane fmn)
                 )
       let postop = do handleConfirmation
                       handleNewProject
@@ -357,7 +361,7 @@ addNote s =
 
 
 resetMessages :: EventM WName MyWorkState ()
-resetMessages = modify $ onBaseState . messagesL .~ mempty
+resetMessages = modify $ onPane @MessagesPane %~ updatePane Nothing
 
 
 type PostOpM a = ReaderT PanelTransition (WriterT [Bool] (EventM WName MyWorkState)) a
