@@ -90,12 +90,18 @@ instance Pane WName MyWorkEvent FileMgrPane FileMgrOps where
     let isSearching = maybe False fileBrowserIsSearching (ts^.fBrowser)
     in case ev of
       Vty.EvKey Vty.KEsc [] | not isSearching -> return $ ts & fBrowser .~ Nothing
+      Vty.EvKey (Vty.KChar 's') [Vty.MCtrl] -> do
+        ts' <- fileMgrSaveProjectsFile (myProjFile ts) ts
+        -- Ctrl-S dismisses the FileMgr window, even on failure
+        return $ ts'
+          & exitMsgsL <>~ (if null (ts ^. errMsgL) then []
+                           else [ withAttr a'Error $ str $ ts ^. errMsgL])
+          & fBrowser .~ Nothing
       _ -> case bs^.getFocus of
              Focused (Just (WName "FMgr:Browser")) -> handleFileLoadEvent ev ts
-             Focused (Just (WName "FMgr:SaveAsBtn")) ->
-               handleFileSaveEvent "" ev ts
+             Focused (Just (WName "FMgr:SaveAsBtn")) -> handleFileSaveEvent ev ts
              Focused (Just (WName "FMgr:SaveBtn")) ->
-               handleFileSaveEvent (myProjFile ts) ev ts
+               fileMgrSaveProjectsFile (myProjFile ts) ts
              _ -> return ts
   updatePane = \case
     AckNewProjects -> \ps -> ps { newProjects = Right False, fmgrMsgs = mempty }
@@ -259,33 +265,19 @@ handleFileLoadEvent ev ts =
     Nothing -> return ts  -- shouldn't happen
 
 
-handleFileSaveEvent :: FilePath
-                    -> Vty.Event
+handleFileSaveEvent :: Vty.Event
                     -> PaneState FileMgrPane MyWorkEvent
                     -> EventM WName es (PaneState FileMgrPane MyWorkEvent)
-handleFileSaveEvent fpth ev ts =
-  if null fpth
-  then case fileBrowserCursor =<< ts^.fBrowser of
-         Nothing -> return ts
-         Just f ->
-           case ev of
-             Vty.EvKey Vty.KEnter [] -> doSave f
-             Vty.EvKey (Vty.KChar ' ') [] -> doSave f
-             _ -> return ts
-  else doSave' fpth
+handleFileSaveEvent ev ts =
+  case fileBrowserCursor =<< ts^.fBrowser of
+    Nothing -> return ts
+    Just f ->
+      case ev of
+        Vty.EvKey Vty.KEnter [] -> doSave f
+        Vty.EvKey (Vty.KChar ' ') [] -> doSave f
+        _ -> return ts
   where
-    doSave f = doSave' $ fileInfoFilePath f
-    doSave' fp =
-      liftIO (D.doesDirectoryExist fp) >>= \case
-        True ->
-          return $ ts
-          & errMsgL .~ "Cannot save to a directory: please select a file"
-        False -> do liftIO $ BS.writeFile fp (encode $ myProjects ts)
-                    return $ ts
-                      & fBrowser .~ Nothing
-                      & myProjFileL .~ fp
-                      & unsavedChangesL .~ False
-                      & exitMsgsL <>~ [ withAttr a'Notice $ str $ "Wrote " <> fp ]
+    doSave f = fileMgrSaveProjectsFile (fileInfoFilePath f) ts
 
 
 instance ToJSON Projects
@@ -360,6 +352,23 @@ fileMgrReadProjectsFile fp ps = readProjectsFile fp >>= \case
                 & unsavedChangesL .~ False
                 & exitMsgsL <>~ [ withAttr a'Notice $ str $ "Loaded " <> fp ]
 
+
+fileMgrSaveProjectsFile :: MonadIO m
+                        => FilePath
+                        -> PaneState FileMgrPane MyWorkEvent
+                        -> m (PaneState FileMgrPane MyWorkEvent)
+fileMgrSaveProjectsFile fp ps =
+  if null fp
+  then return $ ps & errMsgL .~ "Specify filename for save"
+  else liftIO (D.doesDirectoryExist fp) >>= \case
+    True ->
+      return $ ps & errMsgL .~ "Cannot save to a directory: please select a file"
+    False -> do liftIO $ BS.writeFile fp (encode $ myProjects ps)
+                return $ ps
+                  & fBrowser .~ Nothing
+                  & myProjFileL .~ fp
+                  & unsavedChangesL .~ False
+                  & exitMsgsL <>~ [ withAttr a'Notice $ str $ "Wrote " <> fp ]
 
 -- | Called to display the FileMgr modal pane to allow the user to Load or Save.
 showFileMgr :: PaneState FileMgrPane MyWorkEvent

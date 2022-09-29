@@ -112,8 +112,9 @@ The display is divided into the following primary parts:
     +--------------------------------+
 
 
-   TAB / Shift+TAB              -- switch between active panes
-
+   TAB / Shift+TAB     -- switch between active panes
+   Ctrl-S              -- save (to previously loaded file, if any)
+   Ctrl-Q              -- quit
 
 ----------------------------------------
 |]

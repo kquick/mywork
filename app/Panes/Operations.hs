@@ -49,7 +49,7 @@ instance Pane WName MyWorkEvent OperationsPane () where
               , Just $ projInd $ str "C-e Edit"
               , Just $ projInd $ str "Del Delete"
               , Just $ str "F9 Load/Save"
-              , Just $ str $ "C-q Quit"
+              -- , Just $ str $ "C-q Quit"
               ]
     in Just $ vBox
        $ getMessage gs <>

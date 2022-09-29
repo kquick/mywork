@@ -179,10 +179,13 @@ drawMyWork mws =
 handleMyWorkEvent :: BrickEvent WName MyWorkEvent -> EventM WName MyWorkState ()
 handleMyWorkEvent = \case
   AppEvent _ -> return () -- this app does not use these
-    -- Application global actions
-    --   * CTRL-q quits
-    --   * CTRL-l refreshes vty
-    --   * ESC dismisses any modal window
+
+  --------------------------------------------------------
+  -- Application global actions
+  --   * CTRL-q quits
+  --   * CTRL-l refreshes vty
+  --   * ESC dismisses any modal window
+
   VtyEvent (Vty.EvKey (Vty.KChar 'q') [Vty.MCtrl]) -> do
     s <- get
     if s ^. onPane @FileMgrPane . to unsavedChanges
@@ -193,7 +196,10 @@ handleMyWorkEvent = \case
   VtyEvent (Vty.EvKey (Vty.KChar 'l') [Vty.MCtrl]) ->
     liftIO . Vty.refresh =<< getVtyHandle
 
+  --------------------------------------------------------
   -- Other application global events (see Pane.Operations)
+
+  -- Enter Load/Save modal dialog
   VtyEvent (Vty.EvKey (Vty.KFun 9) []) -> do
     resetMessages
     s <- get
@@ -202,6 +208,15 @@ handleMyWorkEvent = \case
       else do
         s' <- s & onPane @FileMgrPane %%~ liftIO . showFileMgr
         put $ s' & focusRingUpdate myWorkFocusL
+
+  -- Quickly save to current file (if possible)
+  ev@(VtyEvent (Vty.EvKey (Vty.KChar 's') [Vty.MCtrl])) -> do
+    s <- get
+    when (not $ s ^. onPane @FileMgrPane . to isFileMgrActive) $ do
+      s' <- s & onPane @FileMgrPane %%~ liftIO . showFileMgr
+      put $ s' & focusRingUpdate myWorkFocusL
+    eventToPanel ev
+    return ()
 
   -- Show help on F1
   VtyEvent (Vty.EvKey (Vty.KFun 1) []) ->
@@ -291,25 +306,29 @@ handleMyWorkEvent = \case
 
   -- Otherwise, allow the Panes in the Panel to handle the event.  The wrappers
   -- handle updates for any inter-state transitions.
-  ev -> do resetMessages
-           s <- get
-           (t,s') <- handleFocusAndPanelEvents myWorkFocusL s ev
-           put s'
-           when (exitedModal @FileMgrPane t s') $
+  ev -> eventToPanel ev
+
+  where
+    eventToPanel ev = do
+      resetMessages
+      s <- get
+      (t,s') <- handleFocusAndPanelEvents myWorkFocusL s ev
+      put s'
+      when (exitedModal @FileMgrPane t s') $
              let fmn = (panelState @FileMgrPane s') ^. fileMgrNotices
              in modify
                 (   (onPane @FileMgrPane . fileMgrNotices .~ mempty)
                   . (onBaseState . messagesL <>~ fmn)
                 )
-           let postop = do handleConfirmation
-                           handleNewProject
-                           prjs <- handleNewProjects
-                           mbprj <- handleProjectChange prjs
-                           mbprj' <- handleLocationInput mbprj
-                           mbloc <- handleLocationChange mbprj'
-                           handleNoteInput mbprj' mbloc
-           refocus <- execWriterT $ runReaderT postop t
-           when (or refocus) $ modify $ focusRingUpdate myWorkFocusL
+      let postop = do handleConfirmation
+                      handleNewProject
+                      prjs <- handleNewProjects
+                      mbprj <- handleProjectChange prjs
+                      mbprj' <- handleLocationInput mbprj
+                      mbloc <- handleLocationChange mbprj'
+                      handleNoteInput mbprj' mbloc
+      refocus <- execWriterT $ runReaderT postop t
+      when (or refocus) $ modify $ focusRingUpdate myWorkFocusL
 
 
 addLocation :: MyWorkState -> EventM WName MyWorkState ()
