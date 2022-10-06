@@ -40,9 +40,9 @@ instance Pane WName MyWorkEvent Projects Projects where
     let isFcsd = gs^.getFocus.to focused == Just WProjList
         renderListEnt _ (r,n) = withAttr (roleAttr r)
                                 $ let ProjectName nm = n in txt nm
-        lst = renderList renderListEnt isFcsd (pL ps)
+        lst = withVScrollBars OnRight $ renderList renderListEnt isFcsd (pL ps)
         srch = str "Search: " <+> renderEditor (txt . head) isFcsd (pS ps)
-    in Just $ vBox [ lst, fill ' ', srch ]
+    in Just $ vBox [ lst, srch ]
   handlePaneEvent _ ev ps =
     do ps1 <- case ev of
                 VtyEvent ev' ->

@@ -49,13 +49,13 @@ instance Pane WName MyWorkEvent Note (Maybe Location) where
     let isFcsd = gs^.getFocus.to focused == Just WNotes
         rndr nt = str (show (notedOn nt) <> " -- ")
                   <+> txt (headText $ T.lines $ note nt)
-    in Just $ vBox [ renderList (const rndr) isFcsd (nL ps)
+    in Just $ vBox [ withVScrollBars OnRight
+                     $ renderList (const rndr) isFcsd (nL ps)
                      -- , hBorder
                    , vLimit 1 (fill '-'
                                <+> str " vv - Full Note - vv "
                                <+> fill '-')
                    , vLimitPercent 75
-                     $ withVScrollBarHandles
                      $ withVScrollBars OnRight
                      $ viewport (WName "Notes:Scroll") Vertical
                      $ txtWrap

@@ -20,8 +20,11 @@ import           Brick.Focus
 import           Brick.Forms
 import           Brick.Panes
 import qualified Brick.Widgets.Center as C
+import qualified Brick.Widgets.Core as BC
+import qualified Brick.Widgets.Table as BT
 import           Control.Lens hiding ( under )
 import           Data.Either ( isRight )
+import qualified Data.List as DL
 import           Data.Maybe ( isJust )
 import qualified Data.Sequence as Seq
 import           Data.Text ( Text )
@@ -184,6 +187,22 @@ initAddProj prjs mbProj ps =
                       $ padLeft (Pad (labelWidth + 4))
                       $ str s <+> w
           labelWidth = 18
+          numCols lastSolo nc =
+            let go wdgs =
+                  if null wdgs then []
+                  else fmap padded (DL.take nc (wdgs <> DL.repeat emptyWidget))
+                       : go (DL.drop nc wdgs)
+                padded = padRight (BC.Pad 2)
+                renderT = BT.renderTable
+                          . BT.surroundingBorder False
+                          . BT.rowBorders False
+                          . BT.columnBorders False
+            in if lastSolo
+               then \wdgs ->
+                      if null wdgs then emptyWidget
+                      else (renderT $ BT.table $ go $ DL.init wdgs)
+                           <=> DL.last wdgs
+               else renderT . BT.table . go
           projFields =
             [ label "Project name" @@=
               let validate = \case
@@ -206,14 +225,16 @@ initAddProj prjs mbProj ps =
               editTextField npGroupT (WName "+Proj:Grp:Text") (Just 1)
             , label "Role" @@=
               -- setFieldConcat (hBox . DL.intersperse (str "  ")) .
-              radioField npRole
+              setFieldConcat (numCols False 2)
+              . radioField npRole
               [ (Author, (WName "+Prj:Role:Author"), "Author")
               , (Maintainer, (WName "+Prj:Role:Maintainer"), "Maintainer")
               , (Contributor, (WName "+Prj:Role:Contributor"), "Contributor")
               , (User, (WName "+Prj:Role:User"), "User")
               ]
             , label' "Language" @@=
-              radioField npLangR
+              setFieldConcat (numCols True 4)
+              . radioField npLangR
               [ (Right C, (WName "+Prj:Lang:C"), "C")
               , (Right CPlusPlus, (WName "+Prj:Lang:CPP"), "C++")
               , (Right Haskell, (WName "+Prj:Lang:Haskell"), "Haskell")

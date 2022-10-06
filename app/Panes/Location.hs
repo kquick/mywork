@@ -47,7 +47,9 @@ instance Pane WName MyWorkEvent Location (Maybe Project) where
                   )
              )
                      -- <=> str " "
-    in Just $ renderList (const rndr) isFcsd (lL ps)
+    in Just
+       $ withVScrollBars OnRight
+       $ renderList (const rndr) isFcsd (lL ps)
   focusable _ ps = focus1If WLocations
                    $ not $ null $ listElements $ lL ps
   handlePaneEvent _ ev = lList %%~ \w -> nestEventM' w (handleListEvent ev)

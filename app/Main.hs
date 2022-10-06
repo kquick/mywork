@@ -160,7 +160,7 @@ drawMyWork mws =
               let pinfo = panelDraw @ProjInfoPane mws
               in [ pinfo
                  , const (hBorderWithLabel (str "Locations")) <$> pinfo
-                 , vLimit 20 <$> panelDraw @Location mws
+                 , vLimitPercent 28 <$> panelDraw @Location mws
                  , const (hBorderWithLabel (str "Notes")) <$> pinfo
                  , pinfo >> panelDraw @Note mws
                  ]
