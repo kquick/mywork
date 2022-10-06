@@ -1,10 +1,16 @@
 cabal-version:      3.0
 name:               mywork
-version:            0.1.1.0
+version:            1.0.0.0
 synopsis:
-    Tool to keep track of what you have been working on, and where and when work should continue.
+    Tool to keep track of what you have been working on and where.
 
--- description:
+description:
+   The mywork tool is a TUI tool that maintains a list of projects, the various
+   locations for those projects, and notes associated with each location.  This
+   is designed to help keep track of what you have been working on, the
+   relationships of the various locations for a project, and to maintain context
+   for that work (assisting a future resumption of work) via the notes.
+
 homepage:           https://github.com/kquick/mywork
 license:            ISC
 license-file:       LICENSE
@@ -15,6 +21,10 @@ category:           Development
 build-type:         Simple
 extra-doc-files:    CHANGELOG.md
 tested-with:        GHC == 9.4.2, GHC == 9.2.4, GHC == 8.10.7, GHC == 8.8.4
+
+source-repository head
+    type: git
+    location: https://github.com/kquick/mywork
 
 common settings
     ghc-options:  -Wall
