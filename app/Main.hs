@@ -288,33 +288,25 @@ handleMyWorkEvent = \case
     unless isModal $ do
       resetMessages
       s <- get
-      case opOnSelection s of
-        ProjectOp ->
-          case getCurrentLocation s of
-            Just (p, _) ->
-              put $ s
-              & onPane @Confirm %~
-              showConfirmation (ConfirmProjectDelete (name p))
-              & focusRingUpdate myWorkFocusL
-            _ -> return ()
-        LocationOp ->
-          case getCurrentLocation s of
-            Just (p, Just l) ->
-              put $ s
-              & onPane @Confirm %~
-              showConfirmation (ConfirmLocationDelete (name p) (location l))
-              & focusRingUpdate myWorkFocusL
-            _ -> return ()
-        NoteOp ->
-          case getCurrentLocation s of
-            Just (p, Just l) ->
-              case getCurrentNote s l of
-                Just nt ->
-                  let msg = ConfirmNoteDelete (name p) (location l) (noteTitle nt)
-                  in put $ s & onPane @Confirm %~ showConfirmation msg
-                     & focusRingUpdate myWorkFocusL
-                _ -> return ()
-            _ -> return ()
+      let cnf =
+            case opOnSelection s of
+              ProjectOp ->
+                case getCurrentLocation s of
+                  Just (p, _) -> Just $ ConfirmProjectDelete (name p)
+                  _ -> Nothing
+              LocationOp ->
+                case getCurrentLocation s of
+                  Just (p, Just l) ->
+                    Just $ ConfirmLocationDelete (name p) (location l)
+                  _ -> Nothing
+              NoteOp -> do (p, mbl) <- getCurrentLocation s
+                           l <- mbl
+                           nt <- noteTitle <$> getCurrentNote s l
+                           pure $ ConfirmNoteDelete (name p) (location l) nt
+      case cnf of
+        Just cmsg -> put $ s & onPane @Confirm %~ showConfirmation cmsg
+                             & focusRingUpdate myWorkFocusL
+        Nothing -> return ()
 
   -- Otherwise, allow the Panes in the Panel to handle the event.  The wrappers
   -- handle updates for any inter-state transitions.
