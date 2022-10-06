@@ -117,6 +117,25 @@ The display is divided into the following primary parts:
    Ctrl-Q              -- quit
 
 The full note area can be scrolled by using the Ctrl key in conjunction with
-the arrow and page-up/page-down keys
+the arrow and page-up/page-down keys.
+
+Each Project can have zero or more locations where that Project exists.  These
+locations can be local directories, remote URLs (e.g. github), or any other
+desired text.  Any local directory location may be scanned to find additional
+locations automatically.  Each location can optionally have a date, which is
+usually the date of the last update (local directory locations will
+automatically update the date with the last modified date of the top-level
+directory); the date is user information and locations will be sorted primarily
+by date and secondarily by location text.
+
+Each Location is associated with zero or more Notes.  Each Note is a free-form
+text paragraph, whose first line acts as the note "title".  In addition to notes
+entered by the user in mywork, if the location is local and contains an
+"@MyWork" directory, any file in that directory with the .txt extension will be
+added as a note.
+
+The Summary area shows the total number of projects (by role), as well as the
+date range of locations.
+
 ----------------------------------------
 |]
