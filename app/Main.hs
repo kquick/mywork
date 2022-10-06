@@ -253,64 +253,68 @@ handleMyWorkEvent = \case
 
   -- Edit the current selected entry in whichever pane is active
   VtyEvent (Vty.EvKey (Vty.KChar 'e') [Vty.MCtrl]) -> do
-    resetMessages
-    s <- get
-    case opOnSelection s of
-      ProjectOp ->
-        case getCurrentLocation s of
-          Just (p, _) ->
-            put $ s
-            & onPane @AddProjPane %~ initAddProj (snd $ getProjects s) (Just p)
-            & focusRingUpdate myWorkFocusL
-          _ -> return ()
-      LocationOp ->
-        case getCurrentLocation s of
-          Just (p, Just l) ->
-            let n = name p
-                ls = locations p
-            in put $ s
-               & onPane @LocationInputPane %~ initLocInput n ls (Just l)
-               & focusRingUpdate myWorkFocusL
-          _ -> return ()
-      NoteOp ->
-        case getCurrentLocation s of
-          Just (_, Just l) ->
-            let nt = getCurrentNote s l
-            in do s' <- s & onPane @NoteInputPane %%~ initNoteInput (notes l) nt
-                  put $ s' & focusRingUpdate myWorkFocusL
-          _ -> return ()
+    isModal <- gets (isPanelModal myWorkFocusL)
+    unless isModal $ do
+      resetMessages
+      s <- get
+      case opOnSelection s of
+        ProjectOp ->
+          case getCurrentLocation s of
+            Just (p, _) ->
+              put $ s
+              & onPane @AddProjPane %~ initAddProj (snd $ getProjects s) (Just p)
+              & focusRingUpdate myWorkFocusL
+            _ -> return ()
+        LocationOp ->
+          case getCurrentLocation s of
+            Just (p, Just l) ->  -- KWQ: same as addLocation but Just l ...
+              let n = name p
+                  ls = locations p
+              in put $ s
+                 & onPane @LocationInputPane %~ initLocInput n ls (Just l)
+                 & focusRingUpdate myWorkFocusL
+            _ -> return ()
+        NoteOp ->
+          case getCurrentLocation s of
+            Just (_, Just l) ->
+              let nt = getCurrentNote s l
+              in do s' <- s & onPane @NoteInputPane %%~ initNoteInput (notes l) nt
+                    put $ s' & focusRingUpdate myWorkFocusL
+            _ -> return ()
 
   -- Delete the current selected entry in whichever pane is active
   VtyEvent (Vty.EvKey Vty.KDel []) -> do
-    resetMessages
-    s <- get
-    case opOnSelection s of
-      ProjectOp ->
-        case getCurrentLocation s of
-          Just (p, _) ->
-            put $ s
-            & onPane @Confirm %~
-                       showConfirmation (ConfirmProjectDelete (name p))
-            & focusRingUpdate myWorkFocusL
-          _ -> return ()
-      LocationOp ->
-        case getCurrentLocation s of
-          Just (p, Just l) ->
-            put $ s
-            & onPane @Confirm %~
-                 showConfirmation (ConfirmLocationDelete (name p) (location l))
-            & focusRingUpdate myWorkFocusL
-          _ -> return ()
-      NoteOp ->
-        case getCurrentLocation s of
-          Just (p, Just l) ->
-            case getCurrentNote s l of
-              Just nt ->
-                let msg = ConfirmNoteDelete (name p) (location l) (noteTitle nt)
-                in put $ s & onPane @Confirm %~ showConfirmation msg
-                           & focusRingUpdate myWorkFocusL
-              _ -> return ()
-          _ -> return ()
+    isModal <- gets (isPanelModal myWorkFocusL)
+    unless isModal $ do
+      resetMessages
+      s <- get
+      case opOnSelection s of
+        ProjectOp ->
+          case getCurrentLocation s of
+            Just (p, _) ->
+              put $ s
+              & onPane @Confirm %~
+              showConfirmation (ConfirmProjectDelete (name p))
+              & focusRingUpdate myWorkFocusL
+            _ -> return ()
+        LocationOp ->
+          case getCurrentLocation s of
+            Just (p, Just l) ->
+              put $ s
+              & onPane @Confirm %~
+              showConfirmation (ConfirmLocationDelete (name p) (location l))
+              & focusRingUpdate myWorkFocusL
+            _ -> return ()
+        NoteOp ->
+          case getCurrentLocation s of
+            Just (p, Just l) ->
+              case getCurrentNote s l of
+                Just nt ->
+                  let msg = ConfirmNoteDelete (name p) (location l) (noteTitle nt)
+                  in put $ s & onPane @Confirm %~ showConfirmation msg
+                     & focusRingUpdate myWorkFocusL
+                _ -> return ()
+            _ -> return ()
 
   -- Otherwise, allow the Panes in the Panel to handle the event.  The wrappers
   -- handle updates for any inter-state transitions.
