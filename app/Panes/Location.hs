@@ -8,10 +8,11 @@
 
 module Panes.Location () where
 
-import           Brick hiding ( Location )
+import           Brick hiding ( Location, on )
 import           Brick.Panes
 import           Brick.Widgets.List
 import           Control.Lens
+import           Data.Function ( on )
 import qualified Data.List as DL
 import           Data.Maybe ( fromMaybe )
 import           Data.Time.Calendar
@@ -57,8 +58,10 @@ instance Pane WName MyWorkEvent Location (Maybe Project) where
                  | l <- locations prj ]
           np = if null ents then Nothing else Just 0
           curElem = maybe id listMoveTo $ listSelected $ lL ps
+          locOrd (l,v,d) = (d,l,v)
+          sortLocs = DL.reverse . DL.sortBy (compare `on` locOrd)
       in ps
-         & lList %~ (curElem . listReplace (V.fromList $ DL.sort ents) np)
+         & lList %~ (curElem . listReplace (V.fromList $ sortLocs ents) np)
          & lProj .~ Just prj
 
 
