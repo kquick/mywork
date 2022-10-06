@@ -1,4 +1,5 @@
 {-# LANGUAGE FlexibleInstances #-}
+{-# LANGUAGE LambdaCase #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE TypeFamilies #-}
@@ -15,6 +16,7 @@ import           Control.Monad ( join )
 import qualified Data.List as DL
 import qualified Data.Text as T
 import qualified Data.Vector as V
+import qualified Graphics.Vty as Vty
 
 import           Defs
 import           Panes.Common.Inputs
@@ -52,7 +54,7 @@ instance Pane WName MyWorkEvent Note (Maybe Location) where
                    , vLimit 1 (fill '-'
                                <+> str " vv - Full Note - vv "
                                <+> fill '-')
-                   , vLimitPercent 50
+                   , vLimitPercent 75
                      $ withVScrollBarHandles
                      $ withVScrollBars OnRight
                      $ viewport (WName "Notes:Scroll") Vertical
@@ -60,7 +62,19 @@ instance Pane WName MyWorkEvent Note (Maybe Location) where
                      $ maybe "" (note . snd) $ listSelectedElement (nL ps)
                    ]
   focusable _ ps = focus1If WNotes $ not $ null $ listElements $ nL ps
-  handlePaneEvent _ ev = nList %%~ \w -> nestEventM' w (handleListEvent ev)
+  handlePaneEvent _ =
+    let scroll o amt = \ps ->
+          do _ <- o (viewportScroll (WName "Notes:Scroll")) amt
+             return ps
+    in \case
+      --   * Scroll full note region with CTRL-up/down/page-up/page-down
+      Vty.EvKey Vty.KUp [Vty.MCtrl] -> scroll vScrollBy (-1)
+      Vty.EvKey Vty.KDown [Vty.MCtrl] -> scroll vScrollBy 1
+      Vty.EvKey Vty.KLeft [Vty.MCtrl] -> scroll hScrollBy (-1)
+      Vty.EvKey Vty.KRight [Vty.MCtrl] -> scroll hScrollBy 1
+      Vty.EvKey Vty.KPageUp [Vty.MCtrl] -> scroll vScrollBy (-10)
+      Vty.EvKey Vty.KPageDown [Vty.MCtrl] -> scroll vScrollBy 10
+      ev -> nList %%~ \w -> nestEventM' w (handleListEvent ev)
 
 
 nList :: Lens' (PaneState Note MyWorkEvent) (List WName Note)

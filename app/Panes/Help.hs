@@ -116,5 +116,7 @@ The display is divided into the following primary parts:
    Ctrl-S              -- save (to previously loaded file, if any)
    Ctrl-Q              -- quit
 
+The full note area can be scrolled by using the Ctrl key in conjunction with
+the arrow and page-up/page-down keys
 ----------------------------------------
 |]
