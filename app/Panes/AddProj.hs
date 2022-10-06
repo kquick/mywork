@@ -72,7 +72,7 @@ instance Pane WName MyWorkEvent AddProjPane () where
   drawPane ps _gs =
     C.centerLayer
     . modalB ((maybe "New" (const "Edit") $ nOrig ps) <> " Project")
-    . vLimit 25
+    . vLimitPercent 80
     . hLimitPercent 65
     . (\f -> vBox [ renderForm f
                   , padBottom (Pad 1) $ withAttr a'Error
@@ -217,6 +217,10 @@ initAddProj prjs mbProj ps =
               [ (Right C, (WName "+Prj:Lang:C"), "C")
               , (Right CPlusPlus, (WName "+Prj:Lang:CPP"), "C++")
               , (Right Haskell, (WName "+Prj:Lang:Haskell"), "Haskell")
+              , (Right JavaScript, (WName "+Prj:Lang:JS"), "JavaScript")
+              , (Right Prolog, (WName "+Prj:Lang:Prolog"), "Prolog")
+              , (Right Python, (WName "+Prj:Lang:Python"), "Python")
+              , (Right Rust, (WName "+Prj:Lang:Rust"), "Rust")
               , (Left "", (WName "Other Language Name"), "Custom")
               ]
             , under "...: " @@=

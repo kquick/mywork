@@ -44,7 +44,7 @@ data Group = Personal | Work | OtherGroup Text
 data Role = Author | Maintainer | Contributor | User
   deriving (Show, Enum, Bounded, Eq, Ord, Generic)
 
-data Language = Haskell | Rust | C | CPlusPlus | Python | JavaScript
+data Language = Haskell | Rust | C | CPlusPlus | Python | JavaScript | Prolog
   deriving (Show, Eq, Generic)
 
 data LocationSpec = LocalSpec (Path Abs Dir)
