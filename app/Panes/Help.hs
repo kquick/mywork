@@ -25,7 +25,7 @@ import           Panes.Common.QQDefs
 
 data HelpPane = HelpPane
 
-instance Pane WName appEv HelpPane () where
+instance Pane WName appEv HelpPane where
   data (PaneState HelpPane appEv) = H Bool
   initPaneState _ = H False
   focusable _ (H ps) = focus1If (WName "Help") ps

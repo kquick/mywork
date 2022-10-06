@@ -61,7 +61,7 @@ blankNewProj = NewProj (ProjectName "") User (Just Personal) "" (Right C)
 
 type ProjForm = Form NewProj MyWorkEvent WName
 
-instance Pane WName MyWorkEvent AddProjPane () where
+instance Pane WName MyWorkEvent AddProjPane where
   data (PaneState AddProjPane MyWorkEvent) = NP { nPF :: Maybe ProjForm
                                                   -- Just == pane active
                                                 , nPrj :: Maybe Project

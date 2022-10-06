@@ -18,7 +18,7 @@ import           Defs
 
 data OperationsPane
 
-instance Pane WName MyWorkEvent OperationsPane () where
+instance Pane WName MyWorkEvent OperationsPane where
   data (PaneState OperationsPane MyWorkEvent) = Unused
   type (DrawConstraints OperationsPane s WName) = ( HasSelection s
                                                   , HasProjects s

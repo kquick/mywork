@@ -57,7 +57,7 @@ data FileMgrOps = AckProjectChanges
                 | DelLocation ProjectName LocationSpec
                 | DelNote ProjectName LocationSpec NoteTitle
 
-instance Pane WName MyWorkEvent FileMgrPane FileMgrOps where
+instance Pane WName MyWorkEvent FileMgrPane where
   data (PaneState FileMgrPane MyWorkEvent) =
     FB { fB :: Maybe (FileBrowser WName)
          -- ^ A Nothing value indicates the modal is not currently active
@@ -110,6 +110,7 @@ instance Pane WName MyWorkEvent FileMgrPane FileMgrOps where
                  Just fp -> fileMgrSaveProjectsFile fp ts
                  Nothing -> return ts
              _ -> return ts
+  type (UpdateType FileMgrPane) = FileMgrOps
   updatePane = \case
     AckProjectChanges ->
       \ps -> ps { projsChanged = Right False, fmgrMsgs = mempty }

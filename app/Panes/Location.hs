@@ -21,13 +21,14 @@ import qualified Data.Vector as V
 import           Defs
 
 
-instance Pane WName MyWorkEvent Location (Maybe Project) where
+instance Pane WName MyWorkEvent Location where
   data (PaneState Location MyWorkEvent) =
     L { lL :: List WName (LocationSpec, Bool, Maybe Day)
       , lP :: Maybe Project
       }
   type (InitConstraints Location s) = ( HasSelection s, HasProjects s )
   type (DrawConstraints Location s WName) = ( HasFocus s WName, HasSelection s )
+  type (UpdateType Location) = Maybe Project
   initPaneState gs =
     let l = L (list (WName "Loc:LList") mempty 1) Nothing
         update x = do p <- selectedProject gs

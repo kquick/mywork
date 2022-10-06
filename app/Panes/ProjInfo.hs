@@ -18,7 +18,7 @@ import           Defs
 
 data ProjInfoPane
 
-instance Pane WName MyWorkEvent ProjInfoPane () where
+instance Pane WName MyWorkEvent ProjInfoPane where
   data (PaneState ProjInfoPane MyWorkEvent) = Unused
   type (DrawConstraints ProjInfoPane s WName) = ( HasSelection s
                                                 , HasProjects s

@@ -27,7 +27,7 @@ import qualified Graphics.Vty as Vty
 import           Defs
 
 
-instance Pane WName MyWorkEvent Confirm (Maybe Confirm) where
+instance Pane WName MyWorkEvent Confirm where
   data (PaneState Confirm MyWorkEvent) = Cf { cD :: Maybe (Dialog Bool)
                                             , cW :: Maybe Confirm
                                             }
@@ -52,6 +52,7 @@ instance Pane WName MyWorkEvent Confirm (Maybe Confirm) where
                                      _ -> Nothing
                             }
     ev -> cDL . _Just %%~ \w -> nestEventM' w (handleDialogEvent ev)
+  type (UpdateType Confirm) = Maybe Confirm
   updatePane mbCnf ps = ps { cW = mbCnf }
 
 

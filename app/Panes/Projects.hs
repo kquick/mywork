@@ -22,7 +22,7 @@ import qualified Data.Vector as V
 import           Defs
 
 
-instance Pane WName MyWorkEvent Projects Projects where
+instance Pane WName MyWorkEvent Projects where
   data (PaneState Projects MyWorkEvent) = P { pL :: List WName (Role, ProjectName)
                                             , pS :: Editor Text WName
                                             , oC :: [ (Role, ProjectName) ]
@@ -30,6 +30,7 @@ instance Pane WName MyWorkEvent Projects Projects where
   type (InitConstraints Projects s) = ( HasProjects s )
   type (DrawConstraints Projects s WName) = ( HasFocus s WName )
   type (EventType Projects WName MyWorkEvent) = BrickEvent WName MyWorkEvent
+  type (UpdateType Projects) = Projects
   initPaneState s =
     let prjs = projects $ snd $ getProjects s
         oc = DL.sort (mkListEnt <$> prjs)

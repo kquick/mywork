@@ -22,8 +22,9 @@ import           Defs
 
 data MessagesPane
 
-instance Pane WName MyWorkEvent MessagesPane (Maybe [Widget WName]) where
+instance Pane WName MyWorkEvent MessagesPane where
   data (PaneState MessagesPane MyWorkEvent) = M [Widget WName]
+  type UpdateType MessagesPane = Maybe [Widget WName]
   initPaneState _ = M mempty
   drawPane (M msgs) _ = Just $ if null msgs then str " " else vBox msgs
   updatePane mbw (M msgs) = case mbw of

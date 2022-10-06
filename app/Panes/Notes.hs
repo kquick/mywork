@@ -22,7 +22,7 @@ import           Defs
 import           Panes.Common.Inputs
 
 
-instance Pane WName MyWorkEvent Note (Maybe Location) where
+instance Pane WName MyWorkEvent Note where
   data (PaneState Note MyWorkEvent) = N { nL :: List WName Note
                                         , nLoc :: Maybe Location
                                         }
@@ -33,6 +33,7 @@ instance Pane WName MyWorkEvent Note (Maybe Location) where
   type (DrawConstraints Note s WName) = ( HasFocus s WName
                                         , HasLocation s
                                         )
+  type (UpdateType Note) = Maybe Location
   initPaneState gs =
     let l = N (list (WName "Notes:List") mempty 1) Nothing
     in flip updatePane l $ join $ snd <$> getCurrentLocation gs

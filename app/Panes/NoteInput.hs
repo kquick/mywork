@@ -50,7 +50,7 @@ blankNewNote = NewNote "" (toEnum 0)
 
 type NoteForm = Form NewNote MyWorkEvent WName
 
-instance Pane WName MyWorkEvent NoteInputPane () where
+instance Pane WName MyWorkEvent NoteInputPane where
   data (PaneState NoteInputPane MyWorkEvent) = NN { nNF :: Maybe NoteForm
                                                     -- Just == pane active
                                                   , nNote :: Maybe Note

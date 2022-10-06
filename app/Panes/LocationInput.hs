@@ -48,7 +48,7 @@ blankNewLoc = NewLoc (RemoteSpec "") Nothing
 
 type LocForm = Form NewLoc MyWorkEvent WName
 
-instance Pane WName MyWorkEvent LocationInputPane () where
+instance Pane WName MyWorkEvent LocationInputPane where
   data (PaneState LocationInputPane MyWorkEvent) = NL { nLF :: Maybe LocForm
                                                         -- Just == pane active
                                                       , nLoc :: Maybe Location

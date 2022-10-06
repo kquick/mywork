@@ -17,7 +17,7 @@ import           Defs
 
 data SummaryPane
 
-instance Pane WName MyWorkEvent SummaryPane () where
+instance Pane WName MyWorkEvent SummaryPane where
   data (PaneState SummaryPane MyWorkEvent) = Unused
   type (DrawConstraints SummaryPane s WName) = ( HasProjects s )
   initPaneState _ = Unused

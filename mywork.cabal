@@ -53,7 +53,7 @@ executable mywork
     default-language: Haskell2010
     build-depends:    base >= 4.13 && < 4.18
                     , brick >= 1.0 && < 1.3
-                    , brick-panes >= 0.3 && < 0.4
+                    , brick-panes >= 0.3 && < 1.1
                     , aeson >= 2.1 && < 2.2
                     , bytestring >= 0.11 && < 0.12
                     , containers
