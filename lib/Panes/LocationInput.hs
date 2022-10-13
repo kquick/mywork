@@ -86,9 +86,10 @@ instance Pane WName MyWorkEvent LocationInputPane where
       let pf = s ^. nLFL
           np form = Location { location = form ^. nlName
                              , locatedOn = form ^. nlDay
-                             , locValid = True  -- assumed
                              , notes = mempty
                              , locCore = LocRT
+                                         { locValid = True  -- assumed
+                                         }
                             }
       in if maybe False allFieldsValid pf
          then do let l = np . formState <$> pf

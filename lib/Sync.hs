@@ -162,9 +162,8 @@ applyLocSync now locsts loc =
              Just _ -> cl
       loc1 = foldr addRmtNoteText loc $ otherLocs locsts
       loc2 = foldr (updateLocNote Nothing) loc1 $ locNotes locsts
-  in loc2 { locValid = maybe True id $ locExists locsts
-          , locatedOn = lastUpd locsts <|> loc ^. locatedOnL
-          }
+  in loc2 & locValidL .~ maybe True id (locExists locsts)
+          & locatedOnL .~ (lastUpd locsts <|> loc ^. locatedOnL)
 
 applyProjLocSync :: MonadIO m
                  => Maybe LocationSpec -> Project -> Location -> m Project
@@ -206,9 +205,10 @@ applyProjLocSync mbOldL_ p_ l_ = evalStateT (go mbOldL_ p_ l_) mempty
                                   ]
                  in Location { location = ls
                              , locatedOn = Nothing
-                             , locValid = True
                              , notes = nts
                              , locCore = LocRT
+                                         { locValid = True
+                                         }
                              }
            foldM (go Nothing) p' (mkLoc <$> otherLocs locsts)
 

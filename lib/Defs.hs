@@ -69,7 +69,6 @@ instance Show LocationSpec where
 
 data Location_ core = Location { location :: LocationSpec
                                , locatedOn :: Maybe Day
-                               , locValid :: Bool
                                , notes :: [Note_ core]
                                , locCore :: LocationCore core
                                }
@@ -110,7 +109,12 @@ noteBody = T.unlines . DL.drop 1 . T.lines . note
 data Live
 
 data ProjRT = ProjRT
-data LocRT = LocRT
+
+data LocRT = LocRT { locValid :: Bool, foo :: Char }
+
+locValidL :: Lens' (Location_ Live) Bool
+locValidL f l = (\x -> l { locCore = (locCore l) { locValid = x } })
+                <$> f (locValid (locCore l))
 
 data NoteRT = NoteRT { noteSource :: NoteSource }
 

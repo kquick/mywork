@@ -27,9 +27,10 @@ hydrate dp = Project { projName = dp ^. projNameL
 hydrateLoc :: Location_ () -> Location_ Live
 hydrateLoc dl = Location { location = dl ^. locationL
                          , locatedOn = dl ^. locatedOnL
-                         , locValid = dl ^. locValidL
                          , notes = hydrateNote <$> (dl ^. notesL)
                          , locCore = LocRT
+                                     { locValid = True  -- default
+                                     }
                          }
 
 hydrateNote :: Note_ () -> Note_ Live
@@ -55,7 +56,6 @@ dehydrate hp = Project { projName = hp ^. projNameL
 dehydrateLoc :: Location_ Live -> Location_ ()
 dehydrateLoc hl = Location { location = hl ^. locationL
                            , locatedOn = hl ^. locatedOnL
-                           , locValid = hl ^. locValidL
                              -- only emit static notes, not dynamically generated
                              -- notes.
                            , notes =

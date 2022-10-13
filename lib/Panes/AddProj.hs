@@ -107,9 +107,10 @@ instance Pane WName MyWorkEvent AddProjPane where
                                   _ -> [ Location
                                          { location = form ^. npLoc
                                          , locatedOn = form ^. npLocDate
-                                         , locValid = True -- assumed
                                          , notes = mempty
                                          , locCore = LocRT
+                                                     { locValid = True -- assumed
+                                                     }
                                          }
                                        ]
                             , projCore = ProjRT

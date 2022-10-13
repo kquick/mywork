@@ -46,7 +46,6 @@ instance FromJSON (Location_ ()) where
   parseJSON = withObject "Location" $ \v -> Location
     <$> v .: "location"
     <*> v .:? "locatedOn" .!= Nothing
-    <*> v .:? "locValid" .!= True -- assumed -- Added in v0.1.1.0
     <*> v .: "notes"
     <*> pure Nothing
 instance FromJSON (Note_ ())
