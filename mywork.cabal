@@ -42,6 +42,7 @@ library
     exposed-modules:  Defs
                       Defs.JSON
                       Defs.Lenses
+                      Defs.Static
                       Draw
                       Events
                       Panes.AddProj

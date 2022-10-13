@@ -8,6 +8,7 @@
 {-# LANGUAGE StandaloneDeriving #-}
 {-# LANGUAGE TemplateHaskell #-}
 {-# LANGUAGE TypeApplications #-}
+{-# LANGUAGE TypeFamilies #-}
 {-# LANGUAGE UndecidableInstances #-}
 
 module Defs where
@@ -27,18 +28,24 @@ import           Path ( Path, Abs, Dir, File, toFilePath )
 import Defs.Lenses
 
 
-newtype Projects = Projects { projects :: [Project] }
+type family ProjectCore a
+type family LocationCore a
+type family NoteCore a
+
+newtype Projects_ core = Projects { projects :: [Project_ core] }
   deriving (Generic, Monoid, Semigroup)
 
 newtype ProjectName = ProjectName Text deriving (Eq, Ord)
 
-data Project = Project { projName :: ProjectName
-                       , group :: Group
-                       , role :: Role
-                       , description :: Text
-                       , language :: Either Text Language
-                       , locations :: [Location]
-                       }
+data Project_ core =
+  Project { projName :: ProjectName
+          , group :: Group
+          , role :: Role
+          , description :: Text
+          , language :: Either Text Language
+          , locations :: [Location_ core]
+          , projCore :: ProjectCore core
+          }
   deriving Generic
 
 data Group = Personal | Work | OtherGroup Text
@@ -59,25 +66,68 @@ instance Show LocationSpec where
     LocalSpec p -> toFilePath p
     RemoteSpec r -> T.unpack r
 
-data Location = Location { location :: LocationSpec
-                         , locatedOn :: Maybe Day
-                         , locValid :: Bool
-                         , notes :: [Note]
-                         }
+data Location_ core = Location { location :: LocationSpec
+                               , locatedOn :: Maybe Day
+                               , locValid :: Bool
+                               , notes :: [Note_ core]
+                               , locCore :: LocationCore core
+                               }
   deriving Generic
 
-data Note = Note { notedOn :: Day
-                 , note :: Text
-                 , noteSource :: NoteSource
-                 }
-  deriving (Eq, Ord, Generic)
+data Note_ core = Note { notedOn :: Day
+                       , note :: Text
+                       , noteSource :: NoteSource
+                       , noteCore :: NoteCore core
+                       }
+  deriving (Generic)
+
+instance Eq (Note_ core) where
+  n1 == n2 = noteTitle n1 == noteTitle n2 && notedOn n1 == notedOn n2
+instance Ord (Note_ core) where
+  compare n1 n2 = case compare (noteTitle n1) (noteTitle n2) of
+                    EQ -> compare (notedOn n1) (notedOn n2)
+                    o -> o
 
 data NoteSource = MyWorkDB | ProjLoc | MyWorkGenerated
   deriving (Eq, Ord)
 
-makeLensL ''Project
-makeLensL ''Location
-makeLensL ''Note
+newtype NoteTitle = NoteTitle Text deriving (Eq, Ord)
+
+noteTitle :: Note_ core -> NoteTitle
+noteTitle = noteTitle' . note
+
+noteTitle' :: Text -> NoteTitle
+noteTitle' t = case T.lines t of
+                 [] -> NoteTitle ""
+                 (l:_) -> NoteTitle l
+
+
+----------------------------------------------------------------------
+
+data Live
+
+data ProjRT = ProjRT
+data LocRT = LocRT
+data NoteRT = NoteRT
+
+type instance ProjectCore Live = ProjRT
+
+type instance LocationCore Live = LocRT
+
+type instance NoteCore Live = NoteRT
+
+type Projects = Projects_ Live
+type Project = Project_ Live
+type Location = Location_ Live
+type Note = Note_ Live
+
+----------------------------------------------------------------------
+
+makeLensL ''Project_
+makeLensL ''Location_
+makeLensL ''Note_
+
+----------------------------------------------------------------------
 
 numProjects :: Projects -> Int
 numProjects = length . projects
@@ -91,17 +141,6 @@ instance Show Group where
     Personal -> "Personal"
     Work -> "Work"
     OtherGroup g -> unpack g
-
-newtype NoteTitle = NoteTitle Text deriving Eq
-
-noteTitle :: Note -> NoteTitle
-noteTitle = noteTitle' . view noteL
-
-noteTitle' :: Text -> NoteTitle
-noteTitle' t = case T.lines t of
-                 [] -> NoteTitle ""
-                 (l:_) -> NoteTitle l
-
 
 ----------------------------------------------------------------------
 

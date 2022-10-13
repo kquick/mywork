@@ -109,8 +109,10 @@ instance Pane WName MyWorkEvent AddProjPane where
                                          , locatedOn = form ^. npLocDate
                                          , locValid = True -- assumed
                                          , notes = mempty
+                                         , locCore = LocRT
                                          }
                                        ]
+                            , projCore = ProjRT
                             }
       in if maybe False allFieldsValid pf
          then do let p0 = np . formState <$> pf

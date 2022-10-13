@@ -58,7 +58,8 @@ instance Pane WName MyWorkEvent LocationInputPane where
                                                       , nProj :: ProjectName
                                                       , nOrig :: Maybe Location
                                                       , nErr :: Maybe Text
-                                                }
+                                                      }
+
   type (EventType LocationInputPane WName MyWorkEvent) = BrickEvent WName MyWorkEvent
   initPaneState _ = NL Nothing Nothing (ProjectName "") Nothing Nothing
   drawPane ps _gs =
@@ -87,6 +88,7 @@ instance Pane WName MyWorkEvent LocationInputPane where
                              , locatedOn = form ^. nlDay
                              , locValid = True  -- assumed
                              , notes = mempty
+                             , locCore = LocRT
                             }
       in if maybe False allFieldsValid pf
          then do let l = np . formState <$> pf

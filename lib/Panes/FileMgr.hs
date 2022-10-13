@@ -45,6 +45,7 @@ import           Path.IO ( createDirIfMissing, doesFileExist
 
 import           Defs
 import           Defs.JSON ()
+import           Defs.Static
 import           Panes.Common.Attrs
 import           Sync
 
@@ -324,8 +325,9 @@ readProjectsFile :: MonadIO m => Path Abs File -> m (Either String Projects)
 readProjectsFile fp = do
   newprjs <- eitherDecode <$> liftIO (BS.readFile $ toFilePath fp)
   case newprjs of
-    Right prjs -> Right . Projects <$> mapM syncProject (projects prjs)
-    e@(Left _) -> return e
+    Right prjs ->
+      Right . Projects <$> mapM (syncProject . hydrate) (projects prjs)
+    Left e -> return $ Left e
 
 fileMgrReadProjectsFile :: MonadIO m
                         => Path Abs File
@@ -346,7 +348,8 @@ fileMgrSaveProjectsFile :: MonadIO m
                         -> PaneState FileMgrPane MyWorkEvent
                         -> m (PaneState FileMgrPane MyWorkEvent)
 fileMgrSaveProjectsFile fp ps =
-  do liftIO $ BS.writeFile (toFilePath fp) (encode $ myProjects ps)
+  do let prjs = Projects (dehydrate <$> (projects $ myProjects ps))
+     liftIO $ BS.writeFile (toFilePath fp) (encode prjs)
      return $ ps
        & fBrowser .~ Nothing
        & myProjFileL .~ Just fp
@@ -364,3 +367,6 @@ showFileMgr prev =
       dataDir <- parent <$> ensureDefaultProjectFile
       fb <- newFileBrowser selectNonDirectories n (Just $ toFilePath dataDir)
       return $ prev & fBrowser .~ Just fb
+
+----------------------------------------------------------------------
+

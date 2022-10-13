@@ -127,6 +127,7 @@ getLocNotes lcl =
                return $ Note { note = nt
                              , notedOn = nd
                              , noteSource = ProjLoc
+                             , noteCore = NoteRT
                              } : nl
           _ -> return nl
   in do ne <- liftIO (doesDirExist notesDir)
@@ -151,7 +152,9 @@ applyLocSync now locsts loc =
         -- only adds a note if there isn't already one, preferring the existing
         -- one in case it has been updated (aside from the noteTitle).
         let rnt = rmtnoteTxt ol
-            rn = Note { note = rnt, notedOn = now, noteSource = MyWorkGenerated }
+            rn = Note { note = rnt, notedOn = now, noteSource = MyWorkGenerated
+                      , noteCore = NoteRT
+                      }
         in case DL.find ((noteTitle' rnt ==) . noteTitle) (cl ^. notesL) of
              Nothing -> cl & notesL <>~ [rn]
              Just _ -> cl
@@ -185,18 +188,21 @@ applyProjLocSync mbOldL_ p_ l_ = evalStateT (go mbOldL_ p_ l_) mempty
                                                  Nothing -> "??"
                                       , notedOn = now
                                       , noteSource = MyWorkGenerated
+                                      , noteCore = NoteRT
                                       }
                                ]
                              DarcsRepo -> mempty
                              _ -> [ Note { note = "Related to " <> tshow ls
                                          , notedOn = now
                                          , noteSource = MyWorkGenerated
+                                         , noteCore = NoteRT
                                          }
                                   ]
                  in Location { location = ls
                              , locatedOn = Nothing
                              , locValid = True
                              , notes = nts
+                             , locCore = LocRT
                              }
            foldM (go Nothing) p' (mkLoc <$> otherLocs locsts)
 
