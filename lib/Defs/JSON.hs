@@ -2,11 +2,9 @@
 {-# LANGUAGE OverloadedStrings #-}
 {-# OPTIONS_GHC -fno-warn-orphans #-}
 
-module Defs.JSON
-where
+module Defs.JSON () where
 
 import Control.Applicative ( (<|>) )
-import Control.Lens
 import Data.Aeson
 
 import Defs
@@ -17,23 +15,15 @@ instance ToJSON ProjectName where toJSON (ProjectName pnm) = toJSON pnm
 instance ToJSON LocationSpec where
   toJSON = genericToJSON locationSpecOptions
 instance ToJSON (Projects_ ())
-instance ToJSON (Project_ ())
+instance ToJSON (Project_ ()) where
+  toJSON = genericToJSON projectOptions
 instance ToJSON Group
 instance ToJSON Role
 instance ToJSON Language
 instance ToJSON (Location_ ()) where
-  -- only emit notes with NoteSource of MyWorkDB
-  toJSON l = object [ ("location", toJSON (l ^. locationL))
-                    , ("locatedOn", toJSON (l ^. locatedOnL))
-                    , ("locValid", toJSON (l ^. locValidL))
-                    , ("notes",
-                       toJSON (filter ((MyWorkDB ==) . view noteSourceL) $ l^.notesL))
-                    ]
+  toJSON = genericToJSON locationOptions
 instance ToJSON (Note_ ()) where
-  -- does not emit noteSource
-  toJSON n = object [ ("note", toJSON (n ^. noteL))
-                    , ("notedOn", toJSON (n ^. notedOnL))
-                    ]
+  toJSON = genericToJSON noteOptions
 
 instance FromJSON ProjectName where parseJSON = fmap ProjectName . parseJSON
 instance FromJSON LocationSpec where
@@ -55,17 +45,21 @@ instance FromJSON Language
 instance FromJSON (Location_ ()) where
   parseJSON = withObject "Location" $ \v -> Location
     <$> v .: "location"
-    <*> v .: "locatedOn"
+    <*> v .:? "locatedOn" .!= Nothing
     <*> v .:? "locValid" .!= True -- assumed -- Added in v0.1.1.0
     <*> v .: "notes"
     <*> pure Nothing
-instance FromJSON (Note_ ()) where
-  parseJSON = withObject "Note" $ \v -> Note
-    <$> v .: "notedOn"
-    <*> v .: "note"
-    <*> pure MyWorkDB
-    <*> pure Nothing
+instance FromJSON (Note_ ())
 
+
+projectOptions :: Options
+projectOptions = defaultOptions { omitNothingFields = True }
+
+locationOptions :: Options
+locationOptions = defaultOptions { omitNothingFields = True }
 
 locationSpecOptions :: Options
 locationSpecOptions = defaultOptions { sumEncoding = UntaggedValue }
+
+noteOptions :: Options
+noteOptions = defaultOptions { omitNothingFields = True }

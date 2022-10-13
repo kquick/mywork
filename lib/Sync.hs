@@ -126,8 +126,10 @@ getLocNotes lcl =
                nd <- utctDay <$> liftIO ( getModificationTime f)
                return $ Note { note = nt
                              , notedOn = nd
-                             , noteSource = ProjLoc
-                             , noteCore = NoteRT
+                             , noteCore =
+                                 NoteRT
+                                 { noteSource = ProjLoc
+                                 }
                              } : nl
           _ -> return nl
   in do ne <- liftIO (doesDirExist notesDir)
@@ -152,8 +154,8 @@ applyLocSync now locsts loc =
         -- only adds a note if there isn't already one, preferring the existing
         -- one in case it has been updated (aside from the noteTitle).
         let rnt = rmtnoteTxt ol
-            rn = Note { note = rnt, notedOn = now, noteSource = MyWorkGenerated
-                      , noteCore = NoteRT
+            rn = Note { note = rnt, notedOn = now
+                      , noteCore = NoteRT { noteSource = MyWorkGenerated }
                       }
         in case DL.find ((noteTitle' rnt ==) . noteTitle) (cl ^. notesL) of
              Nothing -> cl & notesL <>~ [rn]
@@ -187,15 +189,19 @@ applyProjLocSync mbOldL_ p_ l_ = evalStateT (go mbOldL_ p_ l_) mempty
                                                  Just rls -> tshow rls
                                                  Nothing -> "??"
                                       , notedOn = now
-                                      , noteSource = MyWorkGenerated
-                                      , noteCore = NoteRT
+                                      , noteCore =
+                                          NoteRT
+                                          { noteSource = MyWorkGenerated
+                                          }
                                       }
                                ]
                              DarcsRepo -> mempty
                              _ -> [ Note { note = "Related to " <> tshow ls
                                          , notedOn = now
-                                         , noteSource = MyWorkGenerated
-                                         , noteCore = NoteRT
+                                         , noteCore =
+                                             NoteRT
+                                             { noteSource = MyWorkGenerated
+                                             }
                                          }
                                   ]
                  in Location { location = ls

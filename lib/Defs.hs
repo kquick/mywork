@@ -76,7 +76,6 @@ data Location_ core = Location { location :: LocationSpec
 
 data Note_ core = Note { notedOn :: Day
                        , note :: Text
-                       , noteSource :: NoteSource
                        , noteCore :: NoteCore core
                        }
   deriving (Generic)
@@ -108,7 +107,12 @@ data Live
 
 data ProjRT = ProjRT
 data LocRT = LocRT
-data NoteRT = NoteRT
+
+data NoteRT = NoteRT { noteSource :: NoteSource }
+
+noteSourceL :: Lens' (Note_ Live) NoteSource
+noteSourceL f n = (\x -> n { noteCore = (noteCore n) { noteSource = x } })
+                  <$> f (noteSource (noteCore n))
 
 type instance ProjectCore Live = ProjRT
 

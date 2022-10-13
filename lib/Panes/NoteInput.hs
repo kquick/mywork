@@ -87,8 +87,10 @@ instance Pane WName MyWorkEvent NoteInputPane where
       let pf = s ^. nNFL
           np form = Note { note = form ^. nnText
                          , notedOn = form ^. nnDay
-                         , noteSource = MyWorkDB
-                         , noteCore = NoteRT
+                         , noteCore =
+                             NoteRT
+                             { noteSource = MyWorkDB
+                             }
                          }
       in if maybe False allFieldsValid pf
          then

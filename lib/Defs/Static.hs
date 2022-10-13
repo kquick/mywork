@@ -35,8 +35,10 @@ hydrateLoc dl = Location { location = dl ^. locationL
 hydrateNote :: Note_ () -> Note_ Live
 hydrateNote dn = Note { notedOn = dn ^. notedOnL
                       , note = dn ^. noteL
-                      , noteSource = dn ^. noteSourceL
                       , noteCore = NoteRT
+                                   { noteSource = MyWorkDB
+                                   }
+
                       }
 
 
@@ -54,13 +56,17 @@ dehydrateLoc :: Location_ Live -> Location_ ()
 dehydrateLoc hl = Location { location = hl ^. locationL
                            , locatedOn = hl ^. locatedOnL
                            , locValid = hl ^. locValidL
-                           , notes = dehydrateNote <$> (hl ^. notesL)
+                             -- only emit static notes, not dynamically generated
+                             -- notes.
+                           , notes =
+                               let isStatic = (MyWorkDB ==) . view noteSourceL
+                               in dehydrateNote
+                                  <$> (filter isStatic $ hl ^. notesL)
                            , locCore = Nothing
                            }
 
 dehydrateNote :: Note_ Live -> Note_ ()
 dehydrateNote hn = Note { notedOn = hn ^. notedOnL
                         , note = hn ^. noteL
-                        , noteSource = hn ^. noteSourceL
                         , noteCore = Nothing
                         }
