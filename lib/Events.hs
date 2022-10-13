@@ -15,6 +15,7 @@ import           Control.Monad.IO.Class ( liftIO )
 import           Control.Monad.Reader ( ReaderT, runReaderT, ask, lift )
 import           Control.Monad.Writer ( WriterT, execWriterT, tell )
 import qualified Data.List as DL
+import           Data.Time.Clock ( getCurrentTime, utctDay )
 import qualified Graphics.Vty as Vty
 
 import           Defs
@@ -30,7 +31,15 @@ import           Whole
 
 
 handleMyWorkEvent :: BrickEvent WName MyWorkEvent -> EventM WName MyWorkState ()
-handleMyWorkEvent = \case
+handleMyWorkEvent ev = do
+  t <- utctDay <$> liftIO getCurrentTime
+  modify $ onBaseState . todayL .~ t
+  dispatchMyWorkEvent ev
+
+
+dispatchMyWorkEvent :: BrickEvent WName MyWorkEvent
+                    -> EventM WName MyWorkState ()
+dispatchMyWorkEvent = \case
   AppEvent _ -> return () -- this app does not use these
 
   --------------------------------------------------------

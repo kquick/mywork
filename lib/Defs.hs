@@ -22,10 +22,11 @@ import qualified Data.List as DL
 import           Data.Text ( Text, pack, unpack )
 import qualified Data.Text as T
 import           Data.Time.Calendar
+import           Data.Time.Clock ( getCurrentTime, utctDay )
 import           GHC.Generics ( Generic )
 import           Path ( Path, Abs, Dir, File, toFilePath )
 
-import Defs.Lenses
+import           Defs.Lenses
 
 
 type family ProjectCore a
@@ -151,16 +152,24 @@ instance Show Group where
 
 ----------------------------------------------------------------------
 
-data MyWorkCore = MyWorkCore { myWorkFocus :: FocusRing WName }
+data MyWorkCore = MyWorkCore { myWorkFocus :: FocusRing WName
+                             , today :: Day
+                             }
 
-initMyWorkCore :: MyWorkCore
-initMyWorkCore = MyWorkCore { myWorkFocus = focusRing [ WProjList
-                                                      , WLocations
-                                                      ]
-                            }
+initMyWorkCore :: IO MyWorkCore
+initMyWorkCore = do
+  t <- utctDay <$> getCurrentTime
+  return $ MyWorkCore { myWorkFocus = focusRing [ WProjList
+                                                , WLocations
+                                                ]
+                      , today = t
+                      }
 
 coreWorkFocusL :: Lens' MyWorkCore (FocusRing WName)
 coreWorkFocusL f c = (\f' -> c { myWorkFocus = f' }) <$> f (myWorkFocus c)
+
+todayL :: Lens' MyWorkCore Day
+todayL f c = (\d -> c { today = d }) <$> f (today c)
 
 
 data WName = WProjList | WLocations | WNotes | WName Text
@@ -175,6 +184,16 @@ instance Show WName where
 
 
 type MyWorkEvent = ()  -- No app-specific event for this simple app
+
+
+class HasDate s where
+  getToday :: s -> Day
+
+instance HasDate MyWorkCore where
+  getToday = view todayL
+
+instance HasDate (Panel WName MyWorkEvent MyWorkCore panes) where
+  getToday = view (onBaseState . todayL)
 
 
 class HasProjects s where

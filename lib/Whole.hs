@@ -49,19 +49,20 @@ myWorkFocusL :: Lens' MyWorkState (FocusRing WName)
 myWorkFocusL = onBaseState . coreWorkFocusL
 
 
-initialState :: MyWorkState
+initialState :: IO MyWorkState
 initialState = focusRingUpdate myWorkFocusL
-               $ addToPanel Never
-               $ addToPanel WhenFocusedModalHandlingAllEvents
-               $ addToPanel WhenFocusedModalHandlingAllEvents
-               $ addToPanel WhenFocusedModalHandlingAllEvents
-               $ addToPanel Never
-               $ addToPanel Never
-               $ addToPanel WhenFocused
-               $ addToPanel WhenFocused
-               $ addToPanel WhenFocused
-               $ addToPanel WhenFocusedModal
-               $ addToPanel WhenFocusedModalHandlingAllEvents
-               $ addToPanel WhenFocusedModal
-               $ addToPanel Never
-               $ basePanel initMyWorkCore
+               . addToPanel Never
+               . addToPanel WhenFocusedModalHandlingAllEvents
+               . addToPanel WhenFocusedModalHandlingAllEvents
+               . addToPanel WhenFocusedModalHandlingAllEvents
+               . addToPanel Never
+               . addToPanel Never
+               . addToPanel WhenFocused
+               . addToPanel WhenFocused
+               . addToPanel WhenFocused
+               . addToPanel WhenFocusedModal
+               . addToPanel WhenFocusedModalHandlingAllEvents
+               . addToPanel WhenFocusedModal
+               . addToPanel Never
+               . basePanel
+               <$> initMyWorkCore

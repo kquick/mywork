@@ -17,7 +17,8 @@ import Whole
 
 
 main :: IO ()
-main = do i <- initialState & onPane @FileMgrPane %%~ initFileMgr
+main = do i0 <- initialState
+          i <- i0 & onPane @FileMgrPane %%~ initFileMgr
           s <- defaultMain myworkApp i
           case getCurrentLocation s of
             Just (p,mbl) ->
