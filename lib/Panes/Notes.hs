@@ -20,7 +20,7 @@ import qualified Data.Vector as V
 import qualified Graphics.Vty as Vty
 
 import           Defs
-import           Panes.Common.Inputs
+import           Panes.Common.Inputs ( textToDay )
 
 
 instance Pane WName MyWorkEvent Note where
@@ -33,6 +33,7 @@ instance Pane WName MyWorkEvent Note where
                                   )
   type (DrawConstraints Note s WName) = ( HasFocus s WName
                                         , HasLocation s
+                                        , HasDate s
                                         )
   type (UpdateType Note) = Maybe Location
   initPaneState gs =
@@ -49,19 +50,69 @@ instance Pane WName MyWorkEvent Note where
     in N (nl (nL ps)) mbl
   drawPane ps gs =
     let isFcsd = gs^.getFocus.to focused == Just WNotes
-        rndr nt = str (show (nt ^. notedOnL) <> " -- ")
-                  <+> txt (headText $ T.lines $ nt ^. noteL)
+        rndr nt = ttlAttr nt
+                  $ str (show (nt ^. notedOnL))
+                  <+> txt " -"
+                  <+> (if nt ^. noteSourceL == ProjLoc
+                      then txt "@ "
+                      else txt "- ")
+                  <+> ttl nt
+        ttlAttr nt = case nt ^. noteSourceL of
+                       MyWorkDB -> withAttr a'NoteSourceMyWork
+                       ProjLoc -> withAttr a'NoteSourceProjLoc
+                       MyWorkGenerated -> withAttr a'NoteSourceGenerated
+        ttl n = let NoteTitle t = noteTitle n
+                    ws = T.words t
+                in case ws of
+                     ("FUTURE":dw:r) | Just d <- textToDay dw ->
+                       withAttr a'NoteWordFuture (txt "FUTURE")
+                       <+> txt " "
+                       <+> (if getToday gs <= d
+                            then withAttr a'NoteWordPending $ txt dw
+                            else withAttr a'NoteWordExpired $ txt dw)
+                       <+> txt " "
+                       <+> txt (T.unwords r)
+                     ("FUTURE":r) ->
+                       withAttr a'NoteWordFuture (txt "FUTURE")
+                       <+> txt " "
+                       <+> txt (T.unwords r)
+                     ("TODO":dw:r) | Just d <- textToDay dw ->
+                       withAttr a'NoteWordTODO (txt "TODO")
+                       <+> txt " "
+                       <+> (if getToday gs <= d
+                            then withAttr a'NoteWordPending $ txt dw
+                            else withAttr a'NoteWordExpired $ txt dw)
+                       <+> txt " "
+                       <+> txt (T.unwords r)
+                     ("TODO":r) ->
+                       withAttr a'NoteWordTODO (txt "TODO")
+                       <+> txt " "
+                       <+> txt (T.unwords r)
+                     ("IN-PROGRESS":r) ->
+                       withAttr a'NoteWordInProg (txt "IN-PROGRESS")
+                       <+> txt " "
+                       <+> txt (T.unwords r)
+                     ("BLOCKING":r) ->
+                       withAttr a'NoteWordBlocking (txt "BLOCKING")
+                       <+> txt " "
+                       <+> txt (T.unwords r)
+                     _ -> txt t
     in Just $ vBox [ withVScrollBars OnRight
                      $ renderList (const rndr) isFcsd (nL ps)
                      -- , hBorder
                    , vLimit 1 (fill '-'
                                <+> str " vv - Full Note - vv "
                                <+> fill '-')
-                   , vLimitPercent 75
-                     $ withVScrollBars OnRight
-                     $ viewport (WName "Notes:Scroll") Vertical
-                     $ txtWrap
-                     $ maybe "" (view noteL . snd) $ listSelectedElement (nL ps)
+                   , let rndrN nt = vLimit 1 (ttlAttr nt $ ttl nt)
+                                    <=>
+                                    (vLimitPercent 75
+                                     $ withVScrollBars OnRight
+                                     $ viewport (WName "Notes:Scroll") Vertical
+                                     $ txtWrap
+                                     $ noteBody
+                                     $ nt)
+                         blank = str " "
+                     in maybe blank (rndrN . snd) $ listSelectedElement $ nL ps
                    ]
   focusable _ ps = focus1If WNotes $ not $ null $ listElements $ nL ps
   handlePaneEvent _ =

@@ -34,7 +34,7 @@ headText = \case
 
 textToDay :: Text -> Maybe Day
 textToDay t =
-  case T.split (`T.elem` "-/") t of
+  case T.split (`T.elem` "-/.") t of
     [y,m,d] ->
       let validYear x = if x < (1800 :: Integer) then x + 2000 else x
           validMonth x = not (x < 1 || x > (12 :: Int))

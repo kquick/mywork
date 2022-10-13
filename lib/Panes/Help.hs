@@ -132,7 +132,17 @@ Each Location is associated with zero or more Notes.  Each Note is a free-form
 text paragraph, whose first line acts as the note "title".  In addition to notes
 entered by the user in mywork, if the location is local and contains an
 "@MyWork" directory, any file in that directory with the .txt extension will be
-added as a note.
+added as a note.  The first word of a note may be one of the following words
+which will be highlighted specially:
+
+  * TODO [date]
+  * IN-PROGRESS
+  * FUTURE [date]
+  * BLOCKING
+
+The TODO and FUTURE words may be followed by another word that specifies a date.
+Dates in the past (expired) will be highlighted differently than dates in the
+future (pending).
 
 The Summary area shows the total number of projects (by role), as well as the
 date range of locations.

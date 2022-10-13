@@ -18,9 +18,7 @@ import Brick.Forms
 import Brick.Widgets.List
 import Brick.Panes
 import Data.Version ( showVersion )
-import Graphics.Vty ( defAttr, withStyle, defaultStyleMask
-                    , bold, reverseVideo, dim, underline
-                    , black, white, yellow, red, green, cyan, rgbColor )
+import Graphics.Vty
 
 import Defs
 import Panes.AddProj
@@ -43,7 +41,7 @@ myattrs = attrMap defAttr
           , (editFocusedAttr, yellow `on` black)
 
           , (listAttr, defAttr `withStyle` defaultStyleMask)
-          , (listSelectedAttr, defAttr `withStyle` bold)
+          , (listSelectedAttr, defAttr `withStyle` bold `withStyle` underline)
           , (listSelectedFocusedAttr, defAttr `withStyle` reverseVideo)
 
           , (invalidFormInputAttr, fg red `withStyle` bold)
@@ -60,6 +58,18 @@ myattrs = attrMap defAttr
           , (a'RoleUser, defAttr)
 
           , (a'ProjName, defAttr `withStyle` bold `withStyle` underline)
+
+          , (a'NoteSourceMyWork, defAttr)
+          , (a'NoteSourceProjLoc, defAttr)
+          , (a'NoteSourceGenerated, white `on` black `withStyle` dim)
+
+          , (a'NoteWordTODO, yellow `on` blue `withStyle` bold)
+          , (a'NoteWordInProg, magenta `on` white `withStyle` bold)
+          , (a'NoteWordFuture, white `on` black `withStyle` bold)
+          , (a'NoteWordBlocking, white `on` blue `withStyle` bold)
+
+          , (a'NoteWordPending, fg green `withStyle` bold)
+          , (a'NoteWordExpired, red `on` black `withStyle` bold)
 
           , (a'Disabled, defAttr `withStyle` dim)
           , (a'Selected, black `on` yellow)

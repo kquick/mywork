@@ -101,6 +101,9 @@ noteTitle' t = case T.lines t of
                  [] -> NoteTitle ""
                  (l:_) -> NoteTitle l
 
+noteBody :: Note_ core -> Text
+noteBody = T.unlines . DL.drop 1 . T.lines . note
+
 
 ----------------------------------------------------------------------
 
@@ -391,3 +394,19 @@ a'Error = attrName "Error"
 
 a'Notice :: AttrName
 a'Notice = attrName "Notice"
+
+a'NoteSourceMyWork, a'NoteSourceProjLoc, a'NoteSourceGenerated :: AttrName
+a'NoteSourceMyWork = attrName "Note:main"
+a'NoteSourceProjLoc = attrName "Note:projloc"
+a'NoteSourceGenerated = attrName "gen note"
+
+a'NoteWordTODO, a'NoteWordInProg, a'NoteWordFuture, a'NoteWordBlocking
+  , a'NoteWordPending
+  , a'NoteWordExpired :: AttrName
+a'NoteWordTODO = attrName "Note:TODO"
+a'NoteWordInProg = attrName "Note:InProg"
+a'NoteWordFuture = attrName "Note:Future"
+a'NoteWordBlocking = attrName "Note:Blocking"
+
+a'NoteWordPending = attrName "Note:Pending"
+a'NoteWordExpired = attrName "Note:Expired"
