@@ -82,7 +82,9 @@ dispatchMyWorkEvent = \case
 
   -- Show help on F1
   VtyEvent (Vty.EvKey (Vty.KFun 1) []) ->
-    modify $ onPane @HelpPane .~ initHelp
+    modify $ (   (focusRingUpdate myWorkFocusL)
+               . (onPane @HelpPane .~ initHelp)
+             )
 
   -- Add an entry to the currently selected pane
   VtyEvent (Vty.EvKey (Vty.KFun 2) []) -> do
