@@ -138,18 +138,19 @@ handleMyWorkEvent = \case
       let cnf =
             case opOnSelection s of
               ProjectOp ->
-                case getCurrentLocation s of
-                  Just (p, _) -> Just $ ConfirmProjectDelete (p ^. projNameL)
-                  _ -> Nothing
-              LocationOp ->
-                case getCurrentLocation s of
-                  Just (p, Just l) ->
-                    Just $ ConfirmLocationDelete (p ^. projNameL) (l ^. locationL)
-                  _ -> Nothing
+                ConfirmProjectDelete . view projNameL . fst <$> getCurrentLocation s
+              LocationOp -> do
+                (p, Just l) <- getCurrentLocation s
+                return $ ConfirmLocationDelete (p ^. projNameL) (l ^. locationL)
               NoteOp -> do (p, mbl) <- getCurrentLocation s
                            l <- mbl
-                           nt <- noteTitle <$> getCurrentNote s l
-                           pure $ ConfirmNoteDelete (p ^. projNameL) (l ^. locationL) nt
+                           n <- getCurrentNote s l
+                           let c = ConfirmNoteDelete (p ^. projNameL)
+                                   (l ^. locationL)
+                                   (noteTitle n)
+                           if canEditNote n
+                             then Just c
+                             else Nothing
       case cnf of
         Just cmsg -> put $ s & onPane @Confirm %~ showConfirmation cmsg
                              & focusRingUpdate myWorkFocusL

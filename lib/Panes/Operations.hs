@@ -56,7 +56,7 @@ instance Pane WName MyWorkEvent OperationsPane where
                 else Just $ projInd $ str $ "F3 Add " <> addWhat (succ o)
               -- , projInd $ str "F4: Add Note"
               , Just $ enabled (canEdit o) $ projInd $ str "C-e Edit"
-              , Just $ projInd $ str "Del Delete"
+              , Just $ enabled (canEdit o) $ projInd $ str "Del Delete"
               , Just $ str "F9 Load/Save"
               -- , Just $ str $ "C-q Quit"
               ]
