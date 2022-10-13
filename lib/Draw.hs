@@ -63,9 +63,9 @@ myattrs = attrMap defAttr
           , (a'NoteSourceProjLoc, defAttr)
           , (a'NoteSourceGenerated, white `on` black `withStyle` dim)
 
-          , (a'NoteWordTODO, yellow `on` blue `withStyle` bold)
+          , (a'NoteWordTODO, fg (rgbColor 255 80 0) `withStyle` bold)
           , (a'NoteWordInProg, magenta `on` white `withStyle` bold)
-          , (a'NoteWordFuture, white `on` black `withStyle` bold)
+          , (a'NoteWordFuture, fg (rgbColor 255 200 (0::Int)) `withStyle` bold)
           , (a'NoteWordBlocking, white `on` blue `withStyle` bold)
 
           , (a'NoteWordPending, fg green `withStyle` bold)
