@@ -123,9 +123,10 @@ handleMyWorkEvent = \case
           case getCurrentLocation s of
             Just (_, Just l) ->
               let nt = getCurrentNote s l
-              in do s' <- s & onPane @NoteInputPane
-                                     %%~ initNoteInput (l ^. notesL) nt
-                    put $ s' & focusRingUpdate myWorkFocusL
+              in when (maybe False canEditNote nt) $ do
+                s' <- s & onPane @NoteInputPane
+                          %%~ initNoteInput (l ^. notesL) nt
+                put $ s' & focusRingUpdate myWorkFocusL
             _ -> return ()
 
   -- Delete the current selected entry in whichever pane is active

@@ -139,6 +139,9 @@ numProjects = length . projects
 languageText :: Either Text Language -> Text
 languageText = either id (pack . show)
 
+canEditNote :: Note -> Bool
+canEditNote n = n ^. noteSourceL == MyWorkDB
+
 
 instance Show Group where
   show = \case

@@ -1,3 +1,4 @@
+{-# LANGUAGE LambdaCase #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE TypeFamilies #-}
 {-# LANGUAGE TypeSynonymInstances #-}
@@ -23,6 +24,7 @@ instance Pane WName MyWorkEvent OperationsPane where
   type (DrawConstraints OperationsPane s WName) = ( HasSelection s
                                                   , HasProjects s
                                                   , HasLocation s
+                                                  , HasNote s
                                                   , HasFocus s WName
                                                   )
   initPaneState _ = Unused
@@ -35,6 +37,14 @@ instance Pane WName MyWorkEvent OperationsPane where
                       ProjectOp -> "Project"
                       LocationOp -> "Location"
                       NoteOp -> "Note"
+        canEdit = \case
+          NoteOp -> maybe False id
+                    $ do (_,l') <- getCurrentLocation gs
+                         l <- l'
+                         n <- getCurrentNote gs l
+                         return $ canEditNote n
+          _ -> True
+        enabled b = if b then id else withAttr a'Disabled
         ops = DL.intersperse (fill ' ')
               $ withAttr a'Operation
               <$> catMaybes
@@ -45,7 +55,7 @@ instance Pane WName MyWorkEvent OperationsPane where
                 then Nothing
                 else Just $ projInd $ str $ "F3 Add " <> addWhat (succ o)
               -- , projInd $ str "F4: Add Note"
-              , Just $ projInd $ str "C-e Edit"
+              , Just $ enabled (canEdit o) $ projInd $ str "C-e Edit"
               , Just $ projInd $ str "Del Delete"
               , Just $ str "F9 Load/Save"
               -- , Just $ str $ "C-q Quit"
