@@ -1,6 +1,6 @@
 cabal-version:      3.0
 name:               mywork
-version:            1.0.0.0
+version:            1.0.1.0
 synopsis:
     Tool to keep track of what you have been working on and where.
 
