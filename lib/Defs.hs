@@ -204,6 +204,10 @@ instance HasDate (Panel WName MyWorkEvent MyWorkCore panes) where
 
 
 class HasProjects s where
+  -- getProjects returns the current set of projects, along with either a
+  -- confirmation that should be performed (which will update the Projects if
+  -- accepted) or a boolena indication of whether the projects have been changed
+  -- or not.
   getProjects :: s -> (Either Confirm Bool, Projects)
 
 
