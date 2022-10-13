@@ -18,6 +18,7 @@ import           Data.Text ( Text )
 import qualified Data.Text as T
 import qualified Data.Text.Zipper as TZ
 import qualified Data.Vector as V
+import qualified Graphics.Vty as Vty
 
 import           Defs
 
@@ -31,12 +32,14 @@ instance Pane WName MyWorkEvent Projects where
   type (DrawConstraints Projects s WName) = ( HasFocus s WName )
   type (EventType Projects WName MyWorkEvent) = BrickEvent WName MyWorkEvent
   type (UpdateType Projects) = Projects
+
   initPaneState s =
     let prjs = projects $ snd $ getProjects s
         oc = DL.sort (mkListEnt <$> prjs)
         pl = list (WName "Projs:List") (V.fromList oc) 1
         ps = editor (WName "Projs:Filter") (Just 1) ""
     in P pl ps oc
+
   drawPane ps gs =
     let isFcsd = gs^.getFocus.to focused == Just WProjList
         renderListEnt _ (r,n) = withAttr (roleAttr r)
@@ -44,23 +47,51 @@ instance Pane WName MyWorkEvent Projects where
         lst = withVScrollBars OnRight $ renderList renderListEnt isFcsd (pL ps)
         srch = str "Search: " <+> renderEditor (txt . head) isFcsd (pS ps)
     in Just $ vBox [ lst, srch ]
-  handlePaneEvent _ ev ps =
-    do ps1 <- case ev of
-                VtyEvent ev' ->
-                  ps & pList %%~ \w -> nestEventM' w (handleListEvent ev')
-                _ -> return ps
-       let origSearchText = head $ ps ^. pSrch . to getEditContents
-       ps2 <- ps1 & pSrch %%~ \w -> nestEventM' w (handleEditorEvent ev)
-       let searchText = head $ ps2 ^. pSrch . to getEditContents
-       if searchText == origSearchText
-         then return ps2
-         else let nmtxt ent = let ProjectName pnt = snd ent in pnt
-                  nc = if T.null searchText
-                       then oC ps2
-                       else filter ((searchText `T.isInfixOf`) . nmtxt) (oC ps2)
-                  np = if null nc then Nothing else Just 0
-              in return $ ps2 & pList %~ listReplace (V.fromList nc) np
+
+  -- Pass the event to both the list and the search text box: since the search
+  -- text box is only a single line, there is no conflict between the two
+  -- widget's handling of events.
+  handlePaneEvent _ ev ps = do
+    -- Pass event to the list
+    ps1 <- case ev of
+             VtyEvent ev' ->
+               ps & pList %%~ \w -> nestEventM' w (handleListEvent ev')
+             _ -> return ps
+
+    -- Pass event to the search list
+    let origSearchText = head $ ps ^. pSrch . to getEditContents
+    ps2 <- ps1 & pSrch %%~ \w -> nestEventM' w (handleEditorEvent ev)
+    let searchText = head $ ps2 ^. pSrch . to getEditContents
+
+    let ps3 =
+          case ev of
+            VtyEvent (Vty.EvKey Vty.KEnter []) ->
+              -- this does nothing ordinarily, but if there is text in the search
+              -- box, this will "select" the current element, returning the list
+              -- to the full original contents and clearing the search box.
+              let nl = oC ps2
+                  np = if null nl then Nothing else Just 0
+                  curElem = maybe id (listMoveToElement . snd)
+                            $ listSelectedElement $ pL ps2
+              in ps2
+                 & pList %~ (curElem . listReplace (V.fromList nl) np)
+                 & pSrch . editContentsL %~ TZ.clearZipper
+            _ -> ps2
+
+
+    -- If the search box text was updated, by this event, update the list
+    -- accordingly.
+    if searchText == origSearchText
+      then return ps3
+      else let nmtxt ent = let ProjectName pnt = snd ent in pnt
+               nc = if T.null searchText
+                    then oC ps3
+                    else filter ((searchText `T.isInfixOf`) . nmtxt) (oC ps3)
+               np = if null nc then Nothing else Just 0
+           in return $ ps3 & pList %~ listReplace (V.fromList nc) np
+
   focusable _ _ = Seq.singleton WProjList
+
   updatePane newprjs ps =
     let oc = DL.sort (mkListEnt <$> projects newprjs)
         curElem = maybe id listMoveTo $ listSelected $ pL ps
