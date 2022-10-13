@@ -182,7 +182,7 @@ applyProjLocSync = go
            now <- utctDay <$> liftIO getCurrentTime
 
            -- Remove any previous dynamic notes
-           let l' = l { notes = filter ((MyWorkDB ==) . noteSource) $ notes l }
+           let l' = l { notes = filter ((MyWorkDB ==) . view noteSourceL) $ notes l }
 
            let p' = updateLocation mbOldL (applyLocSync now locsts l') p
            let rmtspec rmtName =
