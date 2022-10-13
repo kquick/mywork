@@ -110,7 +110,7 @@ data Live
 
 data ProjRT = ProjRT
 
-data LocRT = LocRT { locValid :: Bool, foo :: Char }
+data LocRT = LocRT { locValid :: Bool }
 
 locValidL :: Lens' (Location_ Live) Bool
 locValidL f l = (\x -> l { locCore = (locCore l) { locValid = x } })

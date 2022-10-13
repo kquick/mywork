@@ -73,12 +73,13 @@ dispatchMyWorkEvent = \case
 
   -- Quickly save to current file (if possible)
   ev@(VtyEvent (Vty.EvKey (Vty.KChar 's') [Vty.MCtrl])) -> do
-    s <- get
-    when (not $ s ^. onPane @FileMgrPane . to isFileMgrActive) $ do
-      s' <- s & onPane @FileMgrPane %%~ liftIO . showFileMgr
-      put $ s' & focusRingUpdate myWorkFocusL
+    isModal <- gets (isPanelModal myWorkFocusL)
+    unless isModal $ do
+      s <- get
+      when (not $ s ^. onPane @FileMgrPane . to isFileMgrActive) $ do
+        s' <- s & onPane @FileMgrPane %%~ liftIO . showFileMgr
+        put $ s' & focusRingUpdate myWorkFocusL
     eventToPanel ev
-    return ()
 
   -- Show help on F1
   VtyEvent (Vty.EvKey (Vty.KFun 1) []) ->
