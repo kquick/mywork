@@ -10,17 +10,13 @@ where
 
 import           Brick hiding ( Location )
 import           Brick.Forms
-import           Control.Applicative ( (<|>) )
 import           Control.Lens
-import           Control.Monad ( guard )
 import           Control.Monad.IO.Class ( MonadIO, liftIO )
-import qualified Data.List as DL
 import           Data.Text ( Text )
 import qualified Data.Text as T
-import           Data.Time.Calendar ( Day, fromGregorianValid )
+import           Data.Time.Calendar ( Day )
 import           Path ( parseAbsDir )
 import           Path.IO ( doesDirExist, doesDirExist )
-import           Text.Read ( readMaybe )
 
 import           Defs
 
@@ -30,29 +26,6 @@ headText :: [Text] -> Text
 headText = \case
   [] -> ""
   (o:_) -> o
-
-
-textToDay :: Text -> Maybe Day
-textToDay t =
-  case T.split (`T.elem` "-/.") t of
-    [y,m,d] ->
-      let validYear x = if x < (1800 :: Integer) then x + 2000 else x
-          validMonth x = not (x < 1 || x > (12 :: Int))
-          validDayOfMonth x = not (x < 1 || x > (31 :: Int))
-          months = [ "january", "february", "march", "april"
-                   , "may", "june", "july", "august"
-                   , "september", "october", "november", "december"
-                   ]
-          ml = T.toLower m
-          matchesMonth x = or [ ml == x, ml == T.take 3 x]
-      in do y' <- validYear <$> readMaybe (T.unpack y)
-            m' <- readMaybe (T.unpack m)
-                  <|> (snd <$> (DL.find (matchesMonth . fst) $ zip months [1..]))
-            guard (validMonth m')
-            d' <- readMaybe (T.unpack d)
-            guard (validDayOfMonth d')
-            fromGregorianValid y' m' d'
-    _ -> Nothing
 
 
 locationInput :: [Location]

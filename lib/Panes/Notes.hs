@@ -15,12 +15,10 @@ import           Brick.Widgets.List
 import           Control.Lens
 import           Control.Monad ( join )
 import qualified Data.List as DL
-import qualified Data.Text as T
 import qualified Data.Vector as V
 import qualified Graphics.Vty as Vty
 
 import           Defs
-import           Panes.Common.Inputs ( textToDay )
 
 
 instance Pane WName MyWorkEvent Note where
@@ -61,42 +59,28 @@ instance Pane WName MyWorkEvent Note where
                        MyWorkDB -> withAttr a'NoteSourceMyWork
                        ProjLoc -> withAttr a'NoteSourceProjLoc
                        MyWorkGenerated -> withAttr a'NoteSourceGenerated
-        ttl n = let NoteTitle t = noteTitle n
-                    ws = T.words t
-                in case ws of
-                     ("FUTURE":dw:r) | Just d <- textToDay dw ->
-                       withAttr a'NoteWordFuture (txt "FUTURE")
-                       <+> txt " "
-                       <+> (if getToday gs <= d
-                            then withAttr a'NoteWordPending $ txt dw
-                            else withAttr a'NoteWordExpired $ txt dw)
-                       <+> txt " "
-                       <+> txt (T.unwords r)
-                     ("FUTURE":r) ->
-                       withAttr a'NoteWordFuture (txt "FUTURE")
-                       <+> txt " "
-                       <+> txt (T.unwords r)
-                     ("TODO":dw:r) | Just d <- textToDay dw ->
-                       withAttr a'NoteWordTODO (txt "TODO")
-                       <+> txt " "
-                       <+> (if getToday gs <= d
-                            then withAttr a'NoteWordPending $ txt dw
-                            else withAttr a'NoteWordExpired $ txt dw)
-                       <+> txt " "
-                       <+> txt (T.unwords r)
-                     ("TODO":r) ->
-                       withAttr a'NoteWordTODO (txt "TODO")
-                       <+> txt " "
-                       <+> txt (T.unwords r)
-                     ("IN-PROGRESS":r) ->
-                       withAttr a'NoteWordInProg (txt "IN-PROGRESS")
-                       <+> txt " "
-                       <+> txt (T.unwords r)
-                     ("BLOCKING":r) ->
-                       withAttr a'NoteWordBlocking (txt "BLOCKING")
-                       <+> txt " "
-                       <+> txt (T.unwords r)
-                     _ -> txt t
+        ttl n = case noteKeyword n of
+                  (Just (FUTURE_ d), NoteRemTitle r) ->
+                    withAttr a'NoteWordFuture (txt "FUTURE")
+                    <+> txt " "
+                    <+> (if getToday gs <= d
+                          then withAttr a'NoteWordPending $ str $ show d
+                          else withAttr a'NoteWordExpired $ str $ show d)
+                    <+> txt " "
+                    <+> txt r
+                  (Just (TODO_ d), NoteRemTitle r) ->
+                    withAttr a'NoteWordTODO (txt "TODO")
+                    <+> txt " "
+                    <+> (if getToday gs <= d
+                          then withAttr a'NoteWordPending $ str $ show d
+                          else withAttr a'NoteWordExpired $ str $ show d)
+                    <+> txt " "
+                    <+> txt r
+                  (Just o, NoteRemTitle r) ->
+                    withAttr (noteKeywordAttr o) (str $ show o)
+                    <+> txt " "
+                    <+> txt r
+                  (Nothing, NoteRemTitle t) -> txt t
     in Just $ vBox [ withVScrollBars OnRight
                      $ renderList (const rndr) isFcsd (nL ps)
                      -- , hBorder

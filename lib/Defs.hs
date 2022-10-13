@@ -16,6 +16,7 @@ module Defs where
 import           Brick hiding (Location)
 import           Brick.Focus
 import           Brick.Panes
+import           Control.Applicative ( (<|>) )
 import           Control.Lens
 import           Control.Monad ( guard )
 import qualified Data.List as DL
@@ -25,6 +26,7 @@ import           Data.Time.Calendar
 import           Data.Time.Clock ( getCurrentTime, utctDay )
 import           GHC.Generics ( Generic )
 import           Path ( Path, Abs, Dir, File, toFilePath )
+import           Text.Read ( readMaybe )
 
 import           Defs.Lenses
 
@@ -103,6 +105,17 @@ noteTitle' t = case T.lines t of
 noteBody :: Note_ core -> Text
 noteBody = T.unlines . DL.drop 1 . T.lines . note
 
+data NoteKeyword = INPROG
+                 | TODO_ Day | TODO
+                 | FUTURE_ Day | FUTURE
+                 | BLOCKING
+  deriving (Eq, Ord)
+
+newtype NoteRemTitle = NoteRemTitle Text
+
+nullaryNoteKeywords :: [ NoteKeyword ]
+nullaryNoteKeywords = [ INPROG, TODO, FUTURE, BLOCKING ]
+
 
 ----------------------------------------------------------------------
 
@@ -156,6 +169,32 @@ instance Show Group where
     Personal -> "Personal"
     Work -> "Work"
     OtherGroup g -> unpack g
+
+
+noteKeyword :: Note_ core -> (Maybe NoteKeyword, NoteRemTitle)
+noteKeyword n =
+  let NoteTitle t = noteTitle n
+  in case T.words t of
+       ("FUTURE":dw:r)
+         | Just d <- textToDay dw
+           -> (Just $ FUTURE_ d, NoteRemTitle $ T.unwords r)
+       ("TODO":dw:r)
+         | Just d <- textToDay dw
+           -> (Just $ TODO_ d, NoteRemTitle $ T.unwords r)
+       (kw:r) -> let k = DL.find ((kw ==) . tshow) nullaryNoteKeywords
+                     rt = NoteRemTitle $ maybe t (const $ T.unwords r) k
+                 in (k, rt)
+       [] -> (Nothing, NoteRemTitle t)
+
+instance Show NoteKeyword where
+  show = \case
+    INPROG -> "IN-PROGRESS"
+    TODO_ d -> "TODO " <> show d
+    FUTURE_ d -> "FUTURE " <> show d
+    TODO -> "TODO"
+    FUTURE -> "FUTURE"
+    BLOCKING -> "BLOCKING"
+
 
 ----------------------------------------------------------------------
 
@@ -366,6 +405,31 @@ instance Show Confirm where
     ConfirmQuit -> "There are unsaved changes.  Are you sure you want to quit?"
 
 
+----------------------------------------------------------------------
+
+textToDay :: Text -> Maybe Day
+textToDay t =
+  case T.split (`T.elem` "-/.") t of
+    [y,m,d] ->
+      let validYear x = if x < (1800 :: Integer) then x + 2000 else x
+          validMonth x = not (x < 1 || x > (12 :: Int))
+          validDayOfMonth x = not (x < 1 || x > (31 :: Int))
+          months = [ "january", "february", "march", "april"
+                   , "may", "june", "july", "august"
+                   , "september", "october", "november", "december"
+                   ]
+          ml = T.toLower m
+          matchesMonth x = or [ ml == x, ml == T.take 3 x]
+      in do y' <- validYear <$> readMaybe (T.unpack y)
+            m' <- readMaybe (T.unpack m)
+                  <|> (snd <$> (DL.find (matchesMonth . fst) $ zip months [1..]))
+            guard (validMonth m')
+            d' <- readMaybe (T.unpack d)
+            guard (validDayOfMonth d')
+            fromGregorianValid y' m' d'
+    _ -> Nothing
+
+
 tshow :: Show a => a -> Text
 tshow = T.pack . show
 
@@ -418,3 +482,12 @@ a'NoteWordBlocking = attrName "Note:Blocking"
 
 a'NoteWordPending = attrName "Note:Pending"
 a'NoteWordExpired = attrName "Note:Expired"
+
+noteKeywordAttr :: NoteKeyword -> AttrName
+noteKeywordAttr = \case
+  FUTURE_ _ -> a'NoteWordFuture
+  FUTURE -> a'NoteWordFuture
+  TODO_ _ -> a'NoteWordTODO
+  TODO -> a'NoteWordTODO
+  BLOCKING -> a'NoteWordBlocking
+  INPROG -> a'NoteWordInProg
