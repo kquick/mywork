@@ -13,7 +13,7 @@ import           Control.Applicative ( (<|>) )
 import           Control.Lens
 import           Control.Monad ( filterM, foldM )
 import           Control.Monad.IO.Class ( MonadIO, liftIO )
-import           Control.Monad.State ( evalStateT, gets, modify )
+import           Control.Monad.State ( StateT, evalStateT, gets, modify )
 import qualified Data.HashMap.Lazy as HM
 import           Data.Ini
 import qualified Data.List as DL
@@ -166,17 +166,25 @@ applyLocSync now locsts loc =
           & locatedOnL .~ (lastUpd locsts <|> loc ^. locatedOnL)
 
 applyProjLocSync :: MonadIO m
-                 => Maybe LocationSpec -> Project -> Location -> m Project
-applyProjLocSync mbOldL_ p_ l_ = evalStateT (go mbOldL_ p_ l_) mempty
+                 => Maybe LocationSpec -> Project -> Location
+                 -> StateT [LocationSpec] m Project
+applyProjLocSync = go
   where
+    go :: MonadIO m => Maybe LocationSpec -> Project -> Location -> StateT [LocationSpec] m Project
     go mbOldL p l =
+      -- Check if this location was already processed
       gets (l ^. locationL `elem`) >>= \case
       True -> return p
       False ->
         do modify (l ^. locationL :)
+           -- This location was not previously processed, so process it now
            locsts <- syncLocation l
            now <- utctDay <$> liftIO getCurrentTime
-           let p' = updateLocation mbOldL (applyLocSync now locsts l) p
+
+           -- Remove any previous dynamic notes
+           let l' = l { notes = filter ((MyWorkDB ==) . noteSource) $ notes l }
+
+           let p' = updateLocation mbOldL (applyLocSync now locsts l') p
            let rmtspec rmtName =
                  DL.lookup (GitRepo (GitRemote rmtName)) $ otherLocs locsts
            let mkLoc (lt,ls) =
@@ -213,5 +221,9 @@ applyProjLocSync mbOldL_ p_ l_ = evalStateT (go mbOldL_ p_ l_) mempty
            foldM (go Nothing) p' (mkLoc <$> otherLocs locsts)
 
 
+-- | Called to synchronize (load) a Project's dynamic information by searching
+-- local locations for that dynamic information.  If the first argument is true,
+-- this is a re-synchronization, so any existing dynamic information is discarded
+-- first.
 syncProject :: MonadIO m => Project -> m Project
-syncProject p = foldM (applyProjLocSync Nothing) p $ p ^. locationsL
+syncProject p = evalStateT (foldM (applyProjLocSync Nothing) p $ p ^. locationsL) mempty

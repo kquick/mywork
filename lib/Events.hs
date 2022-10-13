@@ -13,6 +13,7 @@ import           Control.Lens
 import           Control.Monad ( unless, when )
 import           Control.Monad.IO.Class ( liftIO )
 import           Control.Monad.Reader ( ReaderT, runReaderT, ask, lift )
+import           Control.Monad.State ( evalStateT )
 import           Control.Monad.Writer ( WriterT, execWriterT, tell )
 import qualified Data.List as DL
 import           Data.Time.Clock ( getCurrentTime, utctDay )
@@ -303,7 +304,7 @@ handleLocationInput mbPrj = do
     then do (mbOldL, mbNewLoc) <- inpOp locationInputResults
             case (mbNewLoc, mbPrj) of
               (Just newLoc, Just p) -> do
-                p' <- applyProjLocSync mbOldL p newLoc
+                p' <- evalStateT (applyProjLocSync mbOldL p newLoc) mempty
                 let u = UpdProject Nothing p'
                 modify (   (onPane @FileMgrPane %~ updatePane u)
                          . (onPane @Location %~ updatePane (Just p'))
