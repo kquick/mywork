@@ -37,8 +37,12 @@ common settings
 library
     import:           settings
     hs-source-dirs:   lib
+    autogen-modules:  Paths_mywork
+    other-modules:    Paths_mywork
     exposed-modules:  Defs
                       Defs.JSON
+                      Draw
+                      Events
                       Panes.AddProj
                       Panes.Common.Attrs
                       Panes.Common.Inputs
@@ -56,6 +60,7 @@ library
                       Panes.Notes
                       Panes.Summary
                       Sync
+                      Whole
     default-language: Haskell2010
     build-depends:    base >= 4.13 && < 4.18
                     , brick >= 1.0 && < 1.4
@@ -81,8 +86,6 @@ executable mywork
     ghc-options:      -threaded
     main-is:          Main.hs
     default-language: Haskell2010
-    autogen-modules:  Paths_mywork
-    other-modules:    Paths_mywork
     hs-source-dirs:   app
     build-depends:    base
                     , brick
