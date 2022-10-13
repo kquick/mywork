@@ -120,7 +120,7 @@ newLocation f s = (\n -> s { nLoc = n }) <$> f (nLoc s)
 -- specification.
 locationInputResults :: PaneState LocationInputPane MyWorkEvent
                      -> (Maybe LocationSpec, Maybe Location)
-locationInputResults ps = (location <$> nOrig ps, nLoc ps)
+locationInputResults ps = (view locationL <$> nOrig ps, nLoc ps)
 
 
 validateForm :: EventM WName es (PaneState LocationInputPane MyWorkEvent)
@@ -139,7 +139,7 @@ initLocInput :: ProjectName
              -> Maybe Location
              -> PaneState LocationInputPane MyWorkEvent
              -> PaneState LocationInputPane MyWorkEvent
-initLocInput projName locs mbLoc ps =
+initLocInput prjName locs mbLoc ps =
   case nLF ps of
     Just _ -> ps
     Nothing ->
@@ -155,12 +155,12 @@ initLocInput projName locs mbLoc ps =
             ]
             (case mbLoc of
                Nothing -> blankNewLoc
-               Just l -> NewLoc { _nlName = location l
-                                , _nlDay = locatedOn l
+               Just l -> NewLoc { _nlName = l ^. locationL
+                                , _nlDay = l ^. locatedOnL
                                 }
             )
       in NL { nLF = Just nlForm
-            , nProj = projName
+            , nProj = prjName
             , nLoc = Nothing
             , nOrig = mbLoc
             , nErr = Nothing

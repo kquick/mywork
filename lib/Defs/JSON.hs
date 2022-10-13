@@ -4,7 +4,8 @@
 module Defs.JSON
 where
 
-import           Data.Aeson
+import Control.Lens
+import Data.Aeson
 
 import Defs
 
@@ -19,16 +20,16 @@ instance ToJSON Role
 instance ToJSON Language
 instance ToJSON Location where
   -- only emit notes with NoteSource of MyWorkDB
-  toJSON l = object [ ("location", toJSON (location l))
-                    , ("locatedOn", toJSON (locatedOn l))
-                    , ("locValid", toJSON (locValid l))
+  toJSON l = object [ ("location", toJSON (l ^. locationL))
+                    , ("locatedOn", toJSON (l ^. locatedOnL))
+                    , ("locValid", toJSON (l ^. locValidL))
                     , ("notes",
-                       toJSON (filter ((MyWorkDB ==) . noteSource) $ notes l))
+                       toJSON (filter ((MyWorkDB ==) . view noteSourceL) $ l^.notesL))
                     ]
 instance ToJSON Note where
   -- does not emit noteSource
-  toJSON n = object [ ("note", toJSON (note n))
-                    , ("notedOn", toJSON (notedOn n))
+  toJSON n = object [ ("note", toJSON (n ^. noteL))
+                    , ("notedOn", toJSON (n ^. notedOnL))
                     ]
 
 instance FromJSON ProjectName where parseJSON = fmap ProjectName . parseJSON

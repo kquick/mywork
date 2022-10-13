@@ -113,8 +113,8 @@ handleMyWorkEvent = \case
         LocationOp ->
           case getCurrentLocation s of
             Just (p, Just l) ->  -- KWQ: same as addLocation but Just l ...
-              let n = name p
-                  ls = locations p
+              let n = p ^. projNameL
+                  ls = p ^. locationsL
               in put $ s
                  & onPane @LocationInputPane %~ initLocInput n ls (Just l)
                  & focusRingUpdate myWorkFocusL
@@ -123,7 +123,8 @@ handleMyWorkEvent = \case
           case getCurrentLocation s of
             Just (_, Just l) ->
               let nt = getCurrentNote s l
-              in do s' <- s & onPane @NoteInputPane %%~ initNoteInput (notes l) nt
+              in do s' <- s & onPane @NoteInputPane
+                                     %%~ initNoteInput (l ^. notesL) nt
                     put $ s' & focusRingUpdate myWorkFocusL
             _ -> return ()
 
@@ -137,17 +138,17 @@ handleMyWorkEvent = \case
             case opOnSelection s of
               ProjectOp ->
                 case getCurrentLocation s of
-                  Just (p, _) -> Just $ ConfirmProjectDelete (name p)
+                  Just (p, _) -> Just $ ConfirmProjectDelete (p ^. projNameL)
                   _ -> Nothing
               LocationOp ->
                 case getCurrentLocation s of
                   Just (p, Just l) ->
-                    Just $ ConfirmLocationDelete (name p) (location l)
+                    Just $ ConfirmLocationDelete (p ^. projNameL) (l ^. locationL)
                   _ -> Nothing
               NoteOp -> do (p, mbl) <- getCurrentLocation s
                            l <- mbl
                            nt <- noteTitle <$> getCurrentNote s l
-                           pure $ ConfirmNoteDelete (name p) (location l) nt
+                           pure $ ConfirmNoteDelete (p ^. projNameL) (l ^. locationL) nt
       case cnf of
         Just cmsg -> put $ s & onPane @Confirm %~ showConfirmation cmsg
                              & focusRingUpdate myWorkFocusL
@@ -184,8 +185,8 @@ addLocation :: MyWorkState -> EventM WName MyWorkState ()
 addLocation s =
   case getCurrentProject s of
     Just p ->
-      let n = name p
-          ls = locations p
+      let n = p ^. projNameL
+          ls = p ^. locationsL
       in put $ s
          & onPane @LocationInputPane %~ initLocInput n ls Nothing
          & focusRingUpdate myWorkFocusL
@@ -196,7 +197,7 @@ addNote :: MyWorkState -> EventM WName MyWorkState ()
 addNote s =
   case getCurrentLocation s of
     Just (_, Just l) -> do
-      s' <- s & onPane @NoteInputPane %%~ initNoteInput (notes l) Nothing
+      s' <- s & onPane @NoteInputPane %%~ initNoteInput (l ^. notesL) Nothing
       put $ s' & focusRingUpdate myWorkFocusL
     _ -> return ()
 
@@ -273,7 +274,7 @@ handleProjectChange :: PostOpM (Maybe Project)
 handleProjectChange = do
   mbp <- gets getCurrentProject -- from ProjList pane
   pnm <- gets (fmap fst . selectedLocation) -- from Location pane
-  let mustUpdate = pnm /= (name <$> mbp)
+  let mustUpdate = pnm /= (view projNameL <$> mbp)
   when mustUpdate $ do modify $ onPane @Location %~ updatePane mbp
                        tell [True]
   return mbp
@@ -304,7 +305,7 @@ handleLocationChange = \case
   Just p -> do
     loc0 <- gets (fmap snd . selectedLocation) -- Location pane
     loc1 <- gets (fmap fst . selectedNote) -- Notes pane
-    let mbl = DL.find ((== loc0) . Just . location) (locations p)
+    let mbl = DL.find ((== loc0) . Just . view locationL) (p ^. locationsL)
     unless (loc0 == loc1) $ do modify $ onPane @Note %~ updatePane mbl
                                tell [True]
     return mbl

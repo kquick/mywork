@@ -11,6 +11,7 @@ where
 
 import           Brick
 import           Brick.Panes
+import           Control.Lens
 import qualified Data.List as DL
 
 import           Defs
@@ -33,12 +34,14 @@ instance Pane WName MyWorkEvent ProjInfoPane where
               [ withAttr a'ProjName (let ProjectName nm = p in txt nm)
                 <+> vLimit 1 (fill ' ')
                 <+> str "  ["
-                <+> (str $ show $ group prj)
+                <+> (str $ show $ prj ^. groupL)
                 <+> str ", "
-                <+> (withAttr (roleAttr $ role prj) $ str $ show $ role prj)
+                <+> (withAttr (roleAttr $ prj ^. roleL)
+                     $ str $ show $ prj ^. roleL)
                 <+> str "]"
-              , str "    " <+> txtWrap (description prj)
+              , str "    " <+> txtWrap (prj ^. descriptionL)
               , str " "
-              , txt $ "Language: " <> languageText (language prj)
+              , txt $ "Language: " <> languageText (prj ^. languageL)
               ]
-        in mkPane <$> DL.find ((== p) . name) (projects $ snd $ getProjects gs)
+            nameMatch = (== p) . view projNameL
+        in mkPane <$> DL.find nameMatch (projects $ snd $ getProjects gs)

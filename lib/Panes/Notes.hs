@@ -42,14 +42,14 @@ instance Pane WName MyWorkEvent Note where
         nl =
           case mbl of
             Just l -> curElem
-                      . listReplace (V.fromList $ sortNotes $ notes l) (Just 0)
+                      . listReplace (V.fromList $ sortNotes $ l^.notesL) (Just 0)
             Nothing -> listReplace mempty Nothing
         sortNotes = DL.reverse . DL.sort -- most recent first
     in N (nl (nL ps)) mbl
   drawPane ps gs =
     let isFcsd = gs^.getFocus.to focused == Just WNotes
-        rndr nt = str (show (notedOn nt) <> " -- ")
-                  <+> txt (headText $ T.lines $ note nt)
+        rndr nt = str (show (nt ^. notedOnL) <> " -- ")
+                  <+> txt (headText $ T.lines $ nt ^. noteL)
     in Just $ vBox [ withVScrollBars OnRight
                      $ renderList (const rndr) isFcsd (nL ps)
                      -- , hBorder
@@ -60,7 +60,7 @@ instance Pane WName MyWorkEvent Note where
                      $ withVScrollBars OnRight
                      $ viewport (WName "Notes:Scroll") Vertical
                      $ txtWrap
-                     $ maybe "" (note . snd) $ listSelectedElement (nL ps)
+                     $ maybe "" (view noteL . snd) $ listSelectedElement (nL ps)
                    ]
   focusable _ ps = focus1If WNotes $ not $ null $ listElements $ nL ps
   handlePaneEvent _ =
@@ -86,4 +86,4 @@ instance HasNote (PaneState Note MyWorkEvent) where
   selectedNote ps = do
     curr <- listSelectedElement $ nL ps
     locn <- nLoc ps
-    return ( location locn, noteTitle $ snd curr )
+    return ( locn ^. locationL, noteTitle $ snd curr )

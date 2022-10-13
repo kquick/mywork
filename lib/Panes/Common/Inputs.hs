@@ -73,8 +73,8 @@ locationInput locs mbLoc blankAllowed stateLens =
           in if or
                 [
                   -- Should not match any existing location
-                  and [ ls `elem` (show . location <$> locs)
-                      , maybe True ((ls /=) . show . location) mbLoc
+                  and [ ls `elem` (show . view locationL <$> locs)
+                      , maybe True ((ls /=) . show . view locationL) mbLoc
                       ]
 
                   -- Check blank v.s. allowed and should be an absolute path if

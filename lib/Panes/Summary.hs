@@ -10,6 +10,7 @@ where
 
 import           Brick
 import           Brick.Panes
+import           Control.Lens
 import           Data.Maybe ( catMaybes )
 
 import           Defs
@@ -37,14 +38,14 @@ drawSummary prjcts =
                     , let fp = filter (isRole r) prjs
                     , not (null fp)
                     ]
-        isRole r p = r == role p
+        isRole r p = r == p ^. roleL
         dateRange = if null projDates
                     then str ""
                     else str (show (minimum projDates)
                               <> ".."
                               <> show (maximum projDates)
                              )
-        locDates prj = catMaybes (locatedOn <$> locations prj)
+        locDates prj = catMaybes (view locatedOnL <$> prj ^. locationsL)
         projDates = concatMap locDates prjs
     in vLimit 1
        $ if null prjs

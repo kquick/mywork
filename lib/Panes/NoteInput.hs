@@ -175,8 +175,8 @@ initNoteInput curNotes mbNote ps = do
             ]
             (case mbNote of
                Nothing -> blankNewNote { _nnDay = now }
-               Just l -> NewNote { _nnText = note l
-                                 , _nnDay = notedOn l
+               Just l -> NewNote { _nnText = l ^. noteL
+                                 , _nnDay = l ^. notedOnL
                                  }
             )
       in return $ NN { nNF = Just nlForm

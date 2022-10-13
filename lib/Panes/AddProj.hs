@@ -92,7 +92,7 @@ instance Pane WName MyWorkEvent AddProjPane where
     VtyEvent (Vty.EvKey Vty.KEsc []) -> nPFL %%~ const (return Nothing)
     VtyEvent (Vty.EvKey (Vty.KChar 'd') [Vty.MCtrl]) -> \s ->
       let pf = s ^. nPFL
-          np form = Project { name = form ^. npName
+          np form = Project { projName = form ^. npName
                             , group = case form ^. npGroupG of
                                 Just r -> r
                                 Nothing -> OtherGroup $ form ^. npGroupT
@@ -146,7 +146,7 @@ newProject f s = (\n -> s { nPrj = n}) <$> f (nPrj s)
 -- specification.
 projectInputResults :: PaneState AddProjPane MyWorkEvent
                      -> (Maybe ProjectName, Maybe Project)
-projectInputResults ps = (name <$> nOrig ps, nPrj ps)
+projectInputResults ps = (view projNameL <$> nOrig ps, nPrj ps)
 
 
 validateForm :: EventM WName es (PaneState AddProjPane MyWorkEvent)
@@ -208,11 +208,12 @@ initAddProj prjs mbProj ps =
               let validate = \case
                     [] -> Nothing
                     [""] -> Nothing
-                    (nmt:_) -> let nm = ProjectName nmt
-                               in if nm `elem` (name <$> projects prjs) &&
-                                     (maybe True ((nm /=) . name) mbProj)
-                                  then Nothing  -- invalid
-                                  else Just nm
+                    (nmt:_) ->
+                      let nm = ProjectName nmt
+                      in if nm `elem` (view projNameL <$> projects prjs)
+                            && (maybe True ((nm /=) . view projNameL) mbProj)
+                         then Nothing  -- invalid
+                         else Just nm
               in editField npName (WName "New Project Name") (Just 1)
                  (\(ProjectName nm) -> nm) validate (txt . headText) id
             , label' "Group" @@=
@@ -264,20 +265,20 @@ initAddProj prjs mbProj ps =
             newForm (projFields <> locFields)
             (case mbProj of
                Nothing -> blankNewProj
-               Just p -> NewProj { _npName = name p
-                                 , _npRole = role p
-                                 , _npGroupG = case group p of
+               Just p -> NewProj { _npName = p ^. projNameL
+                                 , _npRole = p ^. roleL
+                                 , _npGroupG = case p ^. groupL of
                                                  Personal -> Just Personal
                                                  Work -> Just Work
                                                  OtherGroup _ -> Nothing
-                                 , _npGroupT = case group p of
+                                 , _npGroupT = case p ^. groupL of
                                                  OtherGroup t -> t
                                                  _ -> ""
-                                 , _npLangR = language p
-                                 , _npLangT = case language p of
+                                 , _npLangR = p ^. languageL
+                                 , _npLangT = case p ^. languageL of
                                                 Right _ -> ""
                                                 Left t -> t
-                                 , _npDesc = description p
+                                 , _npDesc = p ^. descriptionL
                                  , _npLoc = RemoteSpec ""
                                  , _npLocDate = Nothing
                                  }

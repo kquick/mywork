@@ -80,7 +80,7 @@ pOrig :: Lens' (PaneState Projects MyWorkEvent) [ (Role, ProjectName) ]
 pOrig f ps = (\n -> ps { oC = n }) <$> f (oC ps)
 
 mkListEnt :: Project -> (Role, ProjectName)
-mkListEnt pr = (role pr, name pr)
+mkListEnt pr = (pr ^. roleL, pr ^. projNameL)
 
 
 instance HasSelection (PaneState Projects MyWorkEvent) where

@@ -21,12 +21,12 @@ main = do i <- initialState & onPane @FileMgrPane %%~ initFileMgr
           s <- defaultMain myworkApp i
           case getCurrentLocation s of
             Just (p,mbl) ->
-              do let ProjectName pnm = name p
-                 putStrLn $ unpack $ pnm <> ": " <> description p
+              do let ProjectName pnm = p ^. projNameL
+                 putStrLn $ unpack $ pnm <> ": " <> p ^. descriptionL
                  case mbl of
                    Nothing -> return ()
                    Just l ->
-                     case location l of
+                     case l ^. locationL of
                        RemoteSpec r ->
                          putStrLn $ "Remote location: " <> unpack r
                        LocalSpec d -> do putStrLn "Local directory"

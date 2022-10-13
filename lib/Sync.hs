@@ -10,6 +10,7 @@ module Sync
 where
 
 import           Control.Applicative ( (<|>) )
+import           Control.Lens
 import           Control.Monad ( filterM, foldM )
 import           Control.Monad.IO.Class ( MonadIO, liftIO )
 import           Control.Monad.State ( evalStateT, gets, modify )
@@ -44,7 +45,7 @@ newtype GitRemote = GitRemote Text
 
 
 syncLocation :: MonadIO m => Location -> m LocationStatus
-syncLocation l = case location l of
+syncLocation l = case l ^. locationL of
   LocalSpec lcl ->
     do e <- liftIO $ doesDirExist lcl
        u <- if e
@@ -151,13 +152,13 @@ applyLocSync now locsts loc =
         -- one in case it has been updated (aside from the noteTitle).
         let rnt = rmtnoteTxt ol
             rn = Note { note = rnt, notedOn = now, noteSource = MyWorkGenerated }
-        in case DL.find ((noteTitle' rnt ==) . noteTitle) (notes cl) of
-             Nothing -> cl { notes = rn : notes cl }
+        in case DL.find ((noteTitle' rnt ==) . noteTitle) (cl ^. notesL) of
+             Nothing -> cl & notesL <>~ [rn]
              Just _ -> cl
       loc1 = foldr addRmtNoteText loc $ otherLocs locsts
       loc2 = foldr (updateLocNote Nothing) loc1 $ locNotes locsts
   in loc2 { locValid = maybe True id $ locExists locsts
-          , locatedOn = lastUpd locsts <|> locatedOn loc
+          , locatedOn = lastUpd locsts <|> loc ^. locatedOnL
           }
 
 applyProjLocSync :: MonadIO m
@@ -165,10 +166,10 @@ applyProjLocSync :: MonadIO m
 applyProjLocSync mbOldL_ p_ l_ = evalStateT (go mbOldL_ p_ l_) mempty
   where
     go mbOldL p l =
-      gets (location l `elem`) >>= \case
+      gets (l ^. locationL `elem`) >>= \case
       True -> return p
       False ->
-        do modify (location l :)
+        do modify (l ^. locationL :)
            locsts <- syncLocation l
            now <- utctDay <$> liftIO getCurrentTime
            let p' = updateLocation mbOldL (applyLocSync now locsts l) p
@@ -201,4 +202,4 @@ applyProjLocSync mbOldL_ p_ l_ = evalStateT (go mbOldL_ p_ l_) mempty
 
 
 syncProject :: MonadIO m => Project -> m Project
-syncProject p = foldM (applyProjLocSync Nothing) p $ locations p
+syncProject p = foldM (applyProjLocSync Nothing) p $ p ^. locationsL

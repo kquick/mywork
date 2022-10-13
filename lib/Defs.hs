@@ -6,6 +6,7 @@
 {-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE StandaloneDeriving #-}
+{-# LANGUAGE TemplateHaskell #-}
 {-# LANGUAGE TypeApplications #-}
 {-# LANGUAGE UndecidableInstances #-}
 
@@ -23,13 +24,15 @@ import           Data.Time.Calendar
 import           GHC.Generics ( Generic )
 import           Path ( Path, Abs, Dir, File, toFilePath )
 
+import Defs.Lenses
+
 
 newtype Projects = Projects { projects :: [Project] }
   deriving (Generic, Monoid, Semigroup)
 
 newtype ProjectName = ProjectName Text deriving (Eq, Ord)
 
-data Project = Project { name :: ProjectName
+data Project = Project { projName :: ProjectName
                        , group :: Group
                        , role :: Role
                        , description :: Text
@@ -72,6 +75,10 @@ data Note = Note { notedOn :: Day
 data NoteSource = MyWorkDB | ProjLoc | MyWorkGenerated
   deriving (Eq, Ord)
 
+makeLensL ''Project
+makeLensL ''Location
+makeLensL ''Note
+
 numProjects :: Projects -> Int
 numProjects = length . projects
 
@@ -88,7 +95,7 @@ instance Show Group where
 newtype NoteTitle = NoteTitle Text deriving Eq
 
 noteTitle :: Note -> NoteTitle
-noteTitle = noteTitle' . note
+noteTitle = noteTitle' . view noteL
 
 noteTitle' :: Text -> NoteTitle
 noteTitle' t = case T.lines t of
@@ -173,7 +180,7 @@ instance ( PanelOps Note WName MyWorkEvent panes MyWorkCore
 getCurrentProject :: HasSelection s => HasProjects s => s -> Maybe Project
 getCurrentProject s = do pnm <- selectedProject s
                          let (_, prjs) = getProjects s
-                         DL.find ((== pnm) . name) (projects prjs)
+                         DL.find ((== pnm) . view projNameL) (projects prjs)
 
 getCurrentLocation :: HasSelection s
                    => HasLocation s
@@ -182,17 +189,17 @@ getCurrentLocation :: HasSelection s
 getCurrentLocation s =
   do (p,l) <- selectedLocation s
      let (_,prjs) = getProjects s
-     prj <- DL.find ((== p) . name) (projects prjs)
-     return (prj, DL.find ((== l) . location) (locations prj))
+     prj <- DL.find ((== p) . view projNameL) (projects prjs)
+     return (prj, DL.find ((== l) . view locationL) (prj ^. locationsL))
 
 
 getCurrentNote :: HasNote s => s -> Location -> Maybe Note
 getCurrentNote s l = do (l',n) <- selectedNote s
-                        guard (location l == l')
-                        DL.find ((== n) . noteTitle) (notes l)
+                        guard (l ^. locationL == l')
+                        DL.find ((== n) . noteTitle) (l ^. notesL)
 
 isLocationLocal :: Location -> Bool
-isLocationLocal = isLocationLocal' . location
+isLocationLocal = isLocationLocal' . view locationL
 
 isLocationLocal' :: LocationSpec -> Bool
 isLocationLocal' = \case
@@ -209,9 +216,9 @@ isLocationTextLocal t =
 
 updateProject :: Maybe ProjectName -> Project -> Projects -> Projects
 updateProject onm p (Projects ps) =
-  let oldName = maybe (name p) id onm
-      (match, other) = DL.partition ((== oldName) . name) ps
-      p' = foldr (updateLocation Nothing) p (concatMap locations match)
+  let oldName = maybe (p ^. projNameL) id onm
+      (match, other) = DL.partition ((== oldName) . view projNameL) ps
+      p' = foldr (updateLocation Nothing) p (concatMap (view locationsL) match)
   in Projects $ p' : other
 
 
@@ -220,17 +227,18 @@ updateProject onm p (Projects ps) =
 -- the Maybe parameter).
 updateLocation :: Maybe LocationSpec -> Location -> Project -> Project
 updateLocation ol l p =
-  let oldName = maybe (location l) id ol
-      (match, other) = DL.partition ((== oldName) . location) (locations p)
-      l' = foldr addNote l (concatMap notes match)
-      addNote n lc = lc { notes = n : filter ((/= noteTitle n) . noteTitle) (notes lc) }
-  in p { locations = l' : other }
+  let oldName = maybe (l ^. locationL) id ol
+      isOldName = (oldName ==) . view locationL
+      (match, other) = DL.partition isOldName (p ^. locationsL)
+      l' = foldr addNote l (concatMap (view notesL) match)
+      addNote n = notesL %~ (n :) . filter ((/= noteTitle n) . noteTitle)
+  in p & locationsL .~ l' : other
 
 
 updateLocNote :: Maybe NoteTitle -> Note -> Location -> Location
-updateLocNote oldn n l =
+updateLocNote oldn n =
   let oldName = maybe (noteTitle n) id oldn
-  in l { notes = n : filter ((/= oldName) . noteTitle) (notes l) }
+  in notesL %~ (n :) . filter ((/= oldName) . noteTitle)
 
 
 updateNote :: Maybe NoteTitle -> Note -> Location -> Project

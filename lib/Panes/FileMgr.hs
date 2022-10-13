@@ -119,23 +119,23 @@ instance Pane WName MyWorkEvent FileMgrPane where
       . (projsChangedL .~ Right True)
       . (unsavedChangesL .~ True)
     DelProject pname ->
-      (myProjectsL %~ Projects . filter ((/= pname) . name) . projects)
+      (myProjectsL %~ Projects . filter ((/= pname) . view projNameL) . projects)
       . (projsChangedL .~ Right True)
       . (unsavedChangesL .~ True)
     DelLocation pname locn ->
-      let rmvLoc p = if name p == pname
-                     then p { locations = filter (not . thisLoc) $ locations p }
+      let rmvLoc p = if p ^. projNameL == pname
+                     then p & locationsL %~ filter (not . thisLoc)
                      else p
-          thisLoc = ((== locn) . location)
+          thisLoc = ((== locn) . view locationL)
       in (myProjectsL %~ Projects . fmap rmvLoc . projects)
          . (projsChangedL .~ Right True)
          . (unsavedChangesL .~ True)
     DelNote pname locn nt ->
-      let rmvNote p = if name p == pname
-                      then p { locations = rmvNote' <$> locations p }
+      let rmvNote p = if p ^. projNameL == pname
+                      then p & locationsL %~ fmap rmvNote'
                       else p
-          rmvNote' l = if location l == locn
-                       then l { notes = filter (not . thisNote) $ notes l }
+          rmvNote' l = if l ^. locationL == locn
+                       then l & notesL %~ filter (not . thisNote)
                        else l
           thisNote = ((== nt) . noteTitle)
       in (myProjectsL %~ Projects . fmap rmvNote . projects)

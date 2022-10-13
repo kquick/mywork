@@ -32,7 +32,7 @@ instance Pane WName MyWorkEvent Location where
   initPaneState gs =
     let l = L (list (WName "Loc:LList") mempty 1) Nothing
         update x = do p <- selectedProject gs
-                      prj <- DL.find ((== p) . name)
+                      prj <- DL.find ((== p) . view projNameL)
                                      (projects $ snd $ getProjects gs)
                       return $ updatePane (Just prj) x
     in fromMaybe l $ update l
@@ -57,8 +57,8 @@ instance Pane WName MyWorkEvent Location where
   updatePane = \case
     Nothing -> (lList %~ listReplace mempty Nothing) . (lProj .~ Nothing)
     Just prj -> \ps ->
-      let ents = [ (location l, locValid l, locatedOn l)
-                 | l <- locations prj ]
+      let ents = [ (l ^. locationL, l ^. locValidL, l ^. locatedOnL)
+                 | l <- prj ^. locationsL ]
           np = if null ents then Nothing else Just 0
           curElem = maybe id listMoveTo $ listSelected $ lL ps
           locOrd (l,v,d) = (d,l,v)
@@ -80,4 +80,4 @@ instance HasLocation (PaneState Location MyWorkEvent) where
   selectedLocation ps = do
     prj <- lP ps
     curr <- listSelectedElement $ lL ps
-    return ( name prj, (\(l,_,_) -> l) $ snd curr )
+    return ( prj ^. projNameL, (\(l,_,_) -> l) $ snd curr )

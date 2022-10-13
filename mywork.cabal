@@ -41,6 +41,7 @@ library
     other-modules:    Paths_mywork
     exposed-modules:  Defs
                       Defs.JSON
+                      Defs.Lenses
                       Draw
                       Events
                       Panes.AddProj
