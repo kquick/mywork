@@ -63,12 +63,11 @@ myattrs = attrMap defAttr
           , (a'NoteSourceProjLoc, defAttr)
           , (a'NoteSourceGenerated, white `on` black `withStyle` dim)
 
-          , (a'NoteWordTODO, fg (rgbColor 255 80 0) `withStyle` bold)
+          , (a'NoteWordTODO, fg (rgbColor 255 80 (0::Int)) `withStyle` bold)
           , (a'NoteWordInProg, magenta `on` white `withStyle` bold)
           , (a'NoteWordFuture, fg (rgbColor 255 200 (0::Int)) `withStyle` bold)
           , (a'NoteWordBlocking, white `on` blue `withStyle` bold)
 
-          , (a'NoteWordPending, fg green `withStyle` bold)
           , (a'NoteWordExpired, red `on` black `withStyle` bold)
 
           , (a'Disabled, defAttr `withStyle` dim)
@@ -76,6 +75,7 @@ myattrs = attrMap defAttr
           , (a'Error, fg red)
           , (a'Notice, fg cyan)
           ]
+
 
 drawMyWork :: MyWorkState -> [Widget WName]
 drawMyWork mws =

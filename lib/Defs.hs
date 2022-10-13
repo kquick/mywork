@@ -82,13 +82,6 @@ data Note_ core = Note { notedOn :: Day
                        }
   deriving (Generic)
 
-instance Eq (Note_ core) where
-  n1 == n2 = noteTitle n1 == noteTitle n2 && notedOn n1 == notedOn n2
-instance Ord (Note_ core) where
-  compare n1 n2 = case compare (noteTitle n1) (noteTitle n2) of
-                    EQ -> compare (notedOn n1) (notedOn n2)
-                    o -> o
-
 data NoteSource = MyWorkDB | ProjLoc | MyWorkGenerated
   deriving (Eq, Ord)
 
@@ -194,6 +187,19 @@ instance Show NoteKeyword where
     TODO -> "TODO"
     FUTURE -> "FUTURE"
     BLOCKING -> "BLOCKING"
+
+instance Eq (Note_ core) where
+  n1 == n2 = noteTitle n1 == noteTitle n2 && notedOn n1 == notedOn n2
+
+instance Ord (Note_ core) where
+  compare n1 n2 =
+    let noKWor (kw,_) = kw <|> Just BLOCKING
+    in case compare (noKWor $ noteKeyword n1) (noKWor $ noteKeyword n2) of
+         EQ -> case compare (notedOn n1) (notedOn n2) of
+                 EQ -> compare (noteTitle n1) (noteTitle n2)
+                 GT -> LT
+                 LT -> GT
+         o -> o
 
 
 ----------------------------------------------------------------------
@@ -473,14 +479,11 @@ a'NoteSourceProjLoc = attrName "Note:projloc"
 a'NoteSourceGenerated = attrName "gen note"
 
 a'NoteWordTODO, a'NoteWordInProg, a'NoteWordFuture, a'NoteWordBlocking
-  , a'NoteWordPending
   , a'NoteWordExpired :: AttrName
 a'NoteWordTODO = attrName "Note:TODO"
 a'NoteWordInProg = attrName "Note:InProg"
 a'NoteWordFuture = attrName "Note:Future"
 a'NoteWordBlocking = attrName "Note:Blocking"
-
-a'NoteWordPending = attrName "Note:Pending"
 a'NoteWordExpired = attrName "Note:Expired"
 
 noteKeywordAttr :: NoteKeyword -> AttrName
