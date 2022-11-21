@@ -23,10 +23,16 @@ import qualified Graphics.Vty as Vty
 import           Defs
 
 
+data ListEnt = LE { leRole :: Role
+                  , lePName :: ProjectName
+                  }
+  deriving (Eq, Ord)
+
+
 instance Pane WName MyWorkEvent Projects where
-  data (PaneState Projects MyWorkEvent) = P { pL :: List WName (Role, ProjectName)
+  data (PaneState Projects MyWorkEvent) = P { pL :: List WName ListEnt
                                             , pS :: Editor Text WName
-                                            , oC :: [ (Role, ProjectName) ]
+                                            , oC :: [ ListEnt ]
                                             }
   type (InitConstraints Projects s) = ( HasProjects s )
   type (DrawConstraints Projects s WName) = ( HasFocus s WName )
@@ -42,8 +48,9 @@ instance Pane WName MyWorkEvent Projects where
 
   drawPane ps gs =
     let isFcsd = gs^.getFocus.to focused == Just WProjList
-        renderListEnt _ (r,n) = withAttr (roleAttr r)
-                                $ let ProjectName nm = n in txt nm
+        renderListEnt _ le = withAttr (roleAttr $ leRole le)
+                             $ let ProjectName nm = lePName le
+                               in txt nm
         lst = withVScrollBars OnRight $ renderList renderListEnt isFcsd (pL ps)
         srch = str "Search: " <+> renderEditor (txt . head) isFcsd (pS ps)
     in Just $ vBox [ lst, srch ]
@@ -83,7 +90,7 @@ instance Pane WName MyWorkEvent Projects where
     -- accordingly.
     if searchText == origSearchText
       then return ps3
-      else let nmtxt ent = let ProjectName pnt = snd ent in pnt
+      else let nmtxt ent = let ProjectName pnt = lePName ent in pnt
                nc = if T.null searchText
                     then oC ps3
                     else filter ((searchText `T.isInfixOf`) . nmtxt) (oC ps3)
@@ -101,18 +108,20 @@ instance Pane WName MyWorkEvent Projects where
        & pOrig .~ oc
 
 
-pList :: Lens' (PaneState Projects MyWorkEvent) (List WName (Role, ProjectName))
+pList :: Lens' (PaneState Projects MyWorkEvent) (List WName ListEnt)
 pList f ps = (\n -> ps { pL = n }) <$> f (pL ps)
 
 pSrch :: Lens' (PaneState Projects MyWorkEvent) (Editor Text WName)
 pSrch f ps = (\n -> ps { pS = n }) <$> f (pS ps)
 
-pOrig :: Lens' (PaneState Projects MyWorkEvent) [ (Role, ProjectName) ]
+pOrig :: Lens' (PaneState Projects MyWorkEvent) [ListEnt]
 pOrig f ps = (\n -> ps { oC = n }) <$> f (oC ps)
 
-mkListEnt :: Project -> (Role, ProjectName)
-mkListEnt pr = (pr ^. roleL, pr ^. projNameL)
+mkListEnt :: Project -> ListEnt
+mkListEnt pr = LE { leRole = pr ^. roleL
+                  , lePName = pr ^. projNameL
+                  }
 
 
 instance HasSelection (PaneState Projects MyWorkEvent) where
-  selectedProject = fmap (snd . snd) . listSelectedElement . pL
+  selectedProject = fmap (lePName . snd) . listSelectedElement . pL
