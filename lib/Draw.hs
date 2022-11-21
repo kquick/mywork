@@ -68,7 +68,6 @@ myattrs = attrMap defAttr
           , (a'NoteWordFuture, fg (rgbColor 255 200 (0::Int)) `withStyle` bold)
           , (a'NoteWordBlocking, white `on` blue `withStyle` bold)
 
-          , (a'NoteWordExpired, red `on` black `withStyle` bold)
           , (a'Expired, red `on` black `withStyle` bold)
 
           , (a'Disabled, defAttr `withStyle` dim)

@@ -479,13 +479,13 @@ a'NoteSourceMyWork = attrName "Note:main"
 a'NoteSourceProjLoc = attrName "Note:projloc"
 a'NoteSourceGenerated = attrName "gen note"
 
-a'NoteWordTODO, a'NoteWordInProg, a'NoteWordFuture, a'NoteWordBlocking
-  , a'NoteWordExpired, a'Expired :: AttrName
+a'NoteWordTODO, a'NoteWordInProg, a'NoteWordFuture, a'NoteWordBlocking :: AttrName
 a'NoteWordTODO = attrName "Note:TODO"
 a'NoteWordInProg = attrName "Note:InProg"
 a'NoteWordFuture = attrName "Note:Future"
 a'NoteWordBlocking = attrName "Note:Blocking"
-a'NoteWordExpired = attrName "Note:Expired"
+
+a'Expired :: AttrName
 a'Expired = attrName "Note:Expired"
 
 noteKeywordAttr :: NoteKeyword -> AttrName
