@@ -59,29 +59,17 @@ instance Pane WName MyWorkEvent Note where
                        MyWorkDB -> withAttr a'NoteSourceMyWork
                        ProjLoc -> withAttr a'NoteSourceProjLoc
                        MyWorkGenerated -> withAttr a'NoteSourceGenerated
-        pendColor present due =
-          let ndays = fromEnum due - fromEnum present
-              v = min (255::Int) ndays
-              r = 255 - v
-              g = if v == 0 then 0 else 25 + v `div` 2
-              color = Vty.rgbColor r g 0
-              amap = forceAttrMap (fg color)
-          in updateAttrMap (const amap)
         ttl n = case noteKeyword n of
                   (Just (FUTURE_ d), NoteRemTitle r) ->
                     withAttr a'NoteWordFuture (txt "FUTURE")
                     <+> txt " "
-                    <+> (if getToday gs <= d
-                          then pendColor (getToday gs) d $ str $ show d
-                          else withAttr a'NoteWordExpired $ str $ show d)
+                    <+> withDaysAttr (getToday gs) d (str $ show d)
                     <+> txt " "
                     <+> txt r
                   (Just (TODO_ d), NoteRemTitle r) ->
                     withAttr a'NoteWordTODO (txt "TODO")
                     <+> txt " "
-                    <+> (if getToday gs <= d
-                          then pendColor (getToday gs) d $ str $ show d
-                          else withAttr a'NoteWordExpired $ str $ show d)
+                    <+> withDaysAttr (getToday gs) d (str $ show d)
                     <+> txt " "
                     <+> txt r
                   (Just o, NoteRemTitle r) ->

@@ -25,6 +25,7 @@ import qualified Data.Text as T
 import           Data.Time.Calendar
 import           Data.Time.Clock ( getCurrentTime, utctDay )
 import           GHC.Generics ( Generic )
+import           Graphics.Vty.Attributes.Color ( rgbColor )
 import           Path ( Path, Abs, Dir, File, toFilePath )
 import           Text.Read ( readMaybe )
 
@@ -479,12 +480,13 @@ a'NoteSourceProjLoc = attrName "Note:projloc"
 a'NoteSourceGenerated = attrName "gen note"
 
 a'NoteWordTODO, a'NoteWordInProg, a'NoteWordFuture, a'NoteWordBlocking
-  , a'NoteWordExpired :: AttrName
+  , a'NoteWordExpired, a'Expired :: AttrName
 a'NoteWordTODO = attrName "Note:TODO"
 a'NoteWordInProg = attrName "Note:InProg"
 a'NoteWordFuture = attrName "Note:Future"
 a'NoteWordBlocking = attrName "Note:Blocking"
 a'NoteWordExpired = attrName "Note:Expired"
+a'Expired = attrName "Note:Expired"
 
 noteKeywordAttr :: NoteKeyword -> AttrName
 noteKeywordAttr = \case
@@ -494,3 +496,15 @@ noteKeywordAttr = \case
   TODO -> a'NoteWordTODO
   BLOCKING -> a'NoteWordBlocking
   INPROG -> a'NoteWordInProg
+
+withDaysAttr :: Day -> Day -> Widget n -> Widget n
+withDaysAttr present due =
+  let pendColor =
+        let ndays = fromEnum due - fromEnum present
+            v = min (255::Int) ndays
+            r = 255 - v
+            g = if v == 0 then 0 else 25 + v `div` 2
+            color = rgbColor r g 0
+            amap = forceAttrMap (fg color)
+        in updateAttrMap (const amap)
+  in if present <= due then pendColor else withAttr a'Expired

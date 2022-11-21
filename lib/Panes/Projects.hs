@@ -1,4 +1,5 @@
 {-# LANGUAGE FlexibleInstances #-}
+{-# LANGUAGE LambdaCase #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE TypeFamilies #-}
@@ -13,18 +14,26 @@ import           Brick.Widgets.Edit
 import           Brick.Widgets.List
 import           Control.Lens
 import qualified Data.List as DL
+import           Data.Maybe
 import qualified Data.Sequence as Seq
 import           Data.Text ( Text )
 import qualified Data.Text as T
 import qualified Data.Text.Zipper as TZ
+import           Data.Time.Calendar
 import qualified Data.Vector as V
 import qualified Graphics.Vty as Vty
+import           Numeric.Natural
 
 import           Defs
 
 
 data ListEnt = LE { leRole :: Role
                   , lePName :: ProjectName
+                  , leInProg :: Bool
+                  , lePending :: Natural
+                  , lePendDay :: Maybe Day
+                  , leFuture :: Bool -- non-date FUTURE
+                  , leBlocking :: Bool
                   }
   deriving (Eq, Ord)
 
@@ -35,7 +44,7 @@ instance Pane WName MyWorkEvent Projects where
                                             , oC :: [ ListEnt ]
                                             }
   type (InitConstraints Projects s) = ( HasProjects s )
-  type (DrawConstraints Projects s WName) = ( HasFocus s WName )
+  type (DrawConstraints Projects s WName) = ( HasFocus s WName, HasDate s )
   type (EventType Projects WName MyWorkEvent) = BrickEvent WName MyWorkEvent
   type (UpdateType Projects) = Projects
 
@@ -48,9 +57,21 @@ instance Pane WName MyWorkEvent Projects where
 
   drawPane ps gs =
     let isFcsd = gs^.getFocus.to focused == Just WProjList
-        renderListEnt _ le = withAttr (roleAttr $ leRole le)
-                             $ let ProjectName nm = lePName le
-                               in txt nm
+        renderListEnt _ le =
+          withAttr (roleAttr $ leRole le)
+          $ let ProjectName nm = lePName le
+                mark f m = if f le then m else txt " "
+                blk = mark leBlocking $ txt "B"
+                pnd = if lePending le > 0
+                      then let decorate =
+                                 case lePendDay le of
+                                   Nothing -> withAttr a'NoteWordTODO
+                                   Just d -> withDaysAttr (getToday gs) d
+                           in decorate $ str (show $ lePending le)
+                      else txt " "
+                prg = mark leInProg $ txt "*"
+                fut = mark leFuture $ withAttr a'NoteWordFuture $ txt "+"
+            in txt nm <+> vLimit 1 (fill ' ') <+> blk <+> pnd <+> fut <+> prg
         lst = withVScrollBars OnRight $ renderList renderListEnt isFcsd (pL ps)
         srch = str "Search: " <+> renderEditor (txt . head) isFcsd (pS ps)
     in Just $ vBox [ lst, srch ]
@@ -118,9 +139,27 @@ pOrig :: Lens' (PaneState Projects MyWorkEvent) [ListEnt]
 pOrig f ps = (\n -> ps { oC = n }) <$> f (oC ps)
 
 mkListEnt :: Project -> ListEnt
-mkListEnt pr = LE { leRole = pr ^. roleL
-                  , lePName = pr ^. projNameL
-                  }
+mkListEnt pr =
+  let keywords = catMaybes
+                 (fst . noteKeyword <$> (concatMap notes $ locations pr))
+      pendKW = \case
+        TODO -> True
+        -- FUTURE -> True -- handled by leFuture instead
+        TODO_ _ -> True
+        FUTURE_ _ -> True
+        _ -> False
+      pendDay = \case
+        TODO_ d -> Just d
+        FUTURE_ d -> Just d
+        _ -> Nothing
+  in LE { leRole = pr ^. roleL
+        , lePName = pr ^. projNameL
+        , leInProg = not $ null $ filter (== INPROG) keywords
+        , lePending = toEnum $ length $ filter pendKW keywords
+        , lePendDay = listToMaybe $ catMaybes $ DL.sort (pendDay <$> keywords)
+        , leBlocking = not $ null $ filter (== BLOCKING) keywords
+        , leFuture = not $ null $ filter (== FUTURE) keywords
+        }
 
 
 instance HasSelection (PaneState Projects MyWorkEvent) where

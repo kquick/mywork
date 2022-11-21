@@ -69,6 +69,7 @@ myattrs = attrMap defAttr
           , (a'NoteWordBlocking, white `on` blue `withStyle` bold)
 
           , (a'NoteWordExpired, red `on` black `withStyle` bold)
+          , (a'Expired, red `on` black `withStyle` bold)
 
           , (a'Disabled, defAttr `withStyle` dim)
           , (a'Selected, black `on` yellow)
@@ -87,7 +88,7 @@ drawMyWork mws =
             panelDraw @SummaryPane mws
           , Just hBorder
           , Just $ hBox $ catMaybes
-            [ hLimit 25
+            [ hLimit 28
               <$> panelDraw @Projects mws
             , Just vBorder
             , Just $ vBox $ catMaybes $
