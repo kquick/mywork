@@ -24,6 +24,7 @@ module Panes.FileMgr
 where
 
 import           Brick hiding ( Location )
+import qualified Brick
 import           Brick.Panes
 import           Brick.Widgets.Center
 import qualified Brick.Widgets.Core as BC
@@ -202,6 +203,8 @@ drawFB ps ds b =
       fcsd = ds^.getFocus.to focused
       browserFocused = fcsd == Just (WName "FMgr:Browser")
       isDir = isDirSelected ps
+      selected wname = withAttr a'Selected
+                       . putCursor wname (Brick.Location (1,0))
       browserPane fb =
         vLimitPercent 55 $ hLimitPercent width
         $ titledB browserFocused "Choose a file"
@@ -230,7 +233,7 @@ drawFB ps ds b =
                  $ vBox
                  [
                    let a = if fcsd == Just (WName "FMgr:SaveBtn")
-                           then withAttr a'Selected
+                           then selected (WName "FMgr:SaveBtn")
                            else if null f then withAttr a'Disabled else id
                        f = myProjFile ps
                        btxt = case f of
@@ -240,7 +243,7 @@ drawFB ps ds b =
                  , if isDir
                    then withAttr a'Disabled $ str "[SAVE]"
                    else let a = if fcsd == Just (WName "FMgr:SaveAsBtn")
-                                then withAttr a'Selected
+                                then selected (WName "FMgr:SaveAsBtn")
                                 else id
                             btxt =
                               case fileBrowserCursor =<< fB ps of
