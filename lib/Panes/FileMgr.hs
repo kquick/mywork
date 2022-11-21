@@ -41,7 +41,7 @@ import qualified Graphics.Vty as Vty
 import           Path ( Path, Abs, File, (</>), parseAbsFile
                       , relfile, reldir, parent, toFilePath )
 import           Path.IO ( createDirIfMissing, doesFileExist
-                         , XdgDirectory(XdgData), getXdgDir )
+                         , XdgDirectory(XdgConfig), getXdgDir )
 
 import           Defs
 import           Defs.JSON ()
@@ -301,9 +301,9 @@ handleFileSaveEvent ev ts =
 
 ensureDefaultProjectFile :: IO (Path Abs File)
 ensureDefaultProjectFile = do
-  dataDir <- getXdgDir XdgData $ Just [reldir|mywork|]
-  createDirIfMissing True dataDir
-  let pFile = dataDir </> [relfile|projects.json|]
+  confDir <- getXdgDir XdgConfig $ Just [reldir|mywork|]
+  createDirIfMissing True confDir
+  let pFile = confDir </> [relfile|projects.json|]
   e <- doesFileExist pFile
   unless e $ BS.writeFile (toFilePath pFile) ""
   return pFile
