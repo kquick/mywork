@@ -61,7 +61,7 @@ instance Pane WName MyWorkEvent Projects where
           withAttr (roleAttr $ leRole le)
           $ let ProjectName nm = lePName le
                 mark f m = if f le then m else txt " "
-                blk = mark leBlocking $ txt "B"
+                blk = mark leBlocking $ withAttr a'NoteWordBlocking $ txt "B"
                 pnd = if lePending le > 0
                       then let decorate =
                                  case lePendDay le of
