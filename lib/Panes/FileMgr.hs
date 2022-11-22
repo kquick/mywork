@@ -23,8 +23,8 @@ module Panes.FileMgr
   )
 where
 
-import           Brick hiding ( Location )
 import qualified Brick
+import           Brick hiding ( Location )
 import           Brick.Panes
 import           Brick.Widgets.Center
 import qualified Brick.Widgets.Core as BC
@@ -35,6 +35,7 @@ import           Control.Monad ( unless )
 import           Control.Monad.IO.Class ( MonadIO, liftIO )
 import           Data.Aeson ( eitherDecode, encode )
 import qualified Data.ByteString.Lazy as BS
+import qualified Data.List as DL
 import           Data.Maybe ( catMaybes )
 import           Data.Maybe ( isJust )
 import qualified Data.Sequence as Seq
@@ -320,17 +321,26 @@ initFileMgr ps = do
   f <- ensureDefaultProjectFile
   ps' <- fileMgrReadProjectsFile f ps
   let e = ps' ^. errMsgL
-  unless (null e) $ error e
-  return ps'
+  if null e
+    then return ps'
+    else return $ ps' & errMsgL .~ "" & exitMsgsL <>~ [ withAttr a'Error $ str e]
 
 
 readProjectsFile :: MonadIO m => Path Abs File -> m (Either String Projects)
 readProjectsFile fp = do
-  newprjs <- eitherDecode <$> liftIO (BS.readFile $ toFilePath fp)
-  case newprjs of
-    Right prjs ->
-      Right . Projects <$> mapM (syncProject . hydrate) (projects prjs)
-    Left e -> return $ Left e
+  -- n.b. Aeson's eitherDecodeFileStrict shows an incomplete error message,
+  -- eitherDecode's error is better.
+  contents <- liftIO (BS.readFile $ toFilePath fp)
+  if BS.null $ BS.dropWhile (`BS.elem` " \t\n") contents
+    then return $ Left $ "Projects file " <> show fp <> " is empty"
+    else case eitherDecode contents of
+           Right prjs ->
+             Right . Projects <$> mapM (syncProject . hydrate) (projects prjs)
+           Left e -> return $ Left
+            $ let badprefix = "Error in $: "
+              in if badprefix `DL.isPrefixOf` e
+                 then "Error in " <> toFilePath fp <> ": " <> DL.drop (length badprefix) e
+                 else e
 
 fileMgrReadProjectsFile :: MonadIO m
                         => Path Abs File
