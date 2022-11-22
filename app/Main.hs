@@ -13,13 +13,17 @@ import Defs
 import Draw
 import Events
 import Panes.FileMgr
+import Panes.Messages
 import Whole
 
 
 main :: IO ()
 main = do i0 <- initialState
           i <- i0 & onPane @FileMgrPane %%~ initFileMgr
-          s <- defaultMain myworkApp i
+          let errs = i ^. onPane @FileMgrPane . fileMgrNotices
+          let i' = i & onPane @MessagesPane %~ updatePane (Just errs)
+                     & onPane @FileMgrPane . fileMgrNotices .~ mempty
+          s <- defaultMain myworkApp i'
           case getCurrentLocation s of
             Just (p,mbl) ->
               do let ProjectName pnm = p ^. projNameL

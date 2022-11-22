@@ -56,7 +56,8 @@ dispatchMyWorkEvent = \case
                     . (onPane @Confirm %~ showConfirmation ConfirmQuit)
                   )
       else halt
-  VtyEvent (Vty.EvKey (Vty.KChar 'l') [Vty.MCtrl]) ->
+  VtyEvent (Vty.EvKey (Vty.KChar 'l') [Vty.MCtrl]) -> do
+    resetMessages
     liftIO . Vty.refresh =<< getVtyHandle
 
   --------------------------------------------------------
@@ -74,6 +75,7 @@ dispatchMyWorkEvent = \case
 
   -- Quickly save to current file (if possible)
   ev@(VtyEvent (Vty.EvKey (Vty.KChar 's') [Vty.MCtrl])) -> do
+    resetMessages
     isModal <- gets (isPanelModal myWorkFocusL)
     unless isModal $ do
       s <- get
@@ -175,7 +177,7 @@ dispatchMyWorkEvent = \case
 
   where
     eventToPanel ev = do
-      resetMessages
+      -- n.b. do not resetMessages here: startup messages would be suppressed
       s <- get
       (t,s') <- handleFocusAndPanelEvents myWorkFocusL s ev
       put s'
