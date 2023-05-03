@@ -79,7 +79,7 @@ instance Pane WName MyWorkEvent Note where
                   (Nothing, NoteRemTitle t) -> txt t
     in Just $ vBox [ withVScrollBars OnRight
                      $ renderList (const rndr) isFcsd (nL ps)
-                     -- , hBorder
+                     -- Below shows the text of the current note.
                    , vLimit 1 (fill '-'
                                <+> str " vv - Full Note - vv "
                                <+> fill '-')
