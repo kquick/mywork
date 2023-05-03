@@ -55,7 +55,7 @@ import           Sync
 data FileMgrPane
 
 data FileMgrOps = AckProjectChanges
-                | UpdProject (Maybe ProjectName) Project -- add/replace project
+                | UpdProject (Maybe ProjectName) Project Bool -- add/replace project, with flag for inheriting locations from replaced project
                 | DelProject ProjectName
                 | DelLocation ProjectName LocationSpec
                 | DelNote ProjectName LocationSpec NoteTitle
@@ -117,8 +117,8 @@ instance Pane WName MyWorkEvent FileMgrPane where
   updatePane = \case
     AckProjectChanges ->
       \ps -> ps { projsChanged = Right False, fmgrMsgs = mempty }
-    UpdProject mbOldNm prj ->
-      (myProjectsL %~ updateProject mbOldNm prj)
+    UpdProject mbOldNm prj inheritLocs ->
+      (myProjectsL %~ updateProject inheritLocs mbOldNm prj)
       . (projsChangedL .~ Right True)
       . (unsavedChangesL .~ True)
     DelProject pname ->

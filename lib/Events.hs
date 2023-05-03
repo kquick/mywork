@@ -266,7 +266,7 @@ handleNewProject = do
     (mbOld, mbNewProj) <- inpOp projectInputResults
     case mbNewProj of
          Just newProj ->
-           modify $ onPane @FileMgrPane %~ updatePane (UpdProject mbOld newProj)
+           modify $ onPane @FileMgrPane %~ updatePane (UpdProject mbOld newProj True)
          Nothing -> return ()
 
 handleProjectChanges :: PostOpM ()
@@ -307,7 +307,7 @@ handleLocationInput mbPrj = do
             case (mbNewLoc, mbPrj) of
               (Just newLoc, Just p) -> do
                 p' <- evalStateT (applyProjLocSync mbOldL p newLoc) mempty
-                let u = UpdProject Nothing p'
+                let u = UpdProject Nothing p' True
                 modify (   (onPane @FileMgrPane %~ updatePane u)
                          . (onPane @Location %~ updatePane (Just p'))
                        )
@@ -338,7 +338,7 @@ handleNoteInput mbPrj mbLoc = do
        case (mbNewNote, mbPrj, mbLoc) of
          (Just newNote, Just p, Just l) ->
            let (p',l') = updateNote mbOldN newNote l p
-               u = UpdProject Nothing p'
+               u = UpdProject Nothing p' False
            in do modify ( (onPane @FileMgrPane %~ updatePane u)
                           . (onPane @Note %~ updatePane (Just l'))
                         )

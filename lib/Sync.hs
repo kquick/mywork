@@ -185,7 +185,7 @@ applyProjLocSync = go
            -- Remove any previous dynamic notes
            let l' = l { notes = filter ((MyWorkDB ==) . view noteSourceL) $ notes l }
 
-           let p' = updateLocation mbOldL (applyLocSync now locsts l') p
+           let p' = updateLocation True mbOldL (applyLocSync now locsts l') p
            let rmtspec rmtName =
                  DL.lookup (GitRepo (GitRemote rmtName)) $ otherLocs locsts
            let mkLoc (lt,ls) =

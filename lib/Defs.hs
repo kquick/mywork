@@ -336,23 +336,36 @@ isLocationTextLocal t =
            , ":/" `T.isInfixOf` t
            ]
 
-updateProject :: Maybe ProjectName -> Project -> Projects -> Projects
-updateProject onm p (Projects ps) =
+-- | Adds the specified project to the Projects list.  If the first argument is
+-- Just a name, that is the previous name of the project.  The boolean argument
+-- indicates whether the new Project should inherit locations from the old
+-- project(s) or not.
+updateProject :: Bool -> Maybe ProjectName -> Project -> Projects -> Projects
+updateProject inheritLocations onm p (Projects ps) =
   let oldName = maybe (p ^. projNameL) id onm
+      -- Find the existing Project(s) with this (old) name
       (match, other) = DL.partition ((== oldName) . view projNameL) ps
-      p' = foldr (updateLocation Nothing) p (concatMap (view locationsL) match)
+      -- Keep all the old projects (other), and inherit all locations from the
+      -- previous project into this new project and then drop them and keep only
+      -- the new project.
+      p' = if inheritLocations
+           then foldr (updateLocation True Nothing) p (concatMap (view locationsL) match)
+           else p
   in Projects $ p' : other
 
 
 -- | Adds the specified Location to the Project, merging with the previous
 -- Location (with the same name or the previous name indicated by a Just in the
--- the Maybe parameter).
-updateLocation :: Maybe LocationSpec -> Location -> Project -> Project
-updateLocation ol l p =
+-- the Maybe parameter).  The boolean argument indicates whether the new Location
+-- should inherit notes from the old location(s) or not.
+updateLocation :: Bool -> Maybe LocationSpec -> Location -> Project -> Project
+updateLocation inheritNotes ol l p =
   let oldName = maybe (l ^. locationL) id ol
       isOldName = (oldName ==) . view locationL
       (match, other) = DL.partition isOldName (p ^. locationsL)
-      l' = foldr addNote l (concatMap (view notesL) match)
+      l' = if inheritNotes
+           then foldr addNote l (concatMap (view notesL) match)
+           else l
       addNote n = notesL %~ (n :) . filter ((/= noteTitle n) . noteTitle)
   in p & locationsL .~ l' : other
 
@@ -366,7 +379,7 @@ updateLocNote oldn n =
 updateNote :: Maybe NoteTitle -> Note -> Location -> Project
            -> (Project, Location)
 updateNote oldn n l p = let newL = updateLocNote oldn n l
-                        in (updateLocation Nothing newL p, newL)
+                        in (updateLocation False Nothing newL p, newL)
 
 
 data OpOn = ProjectOp | LocationOp | NoteOp
