@@ -62,14 +62,17 @@ blankNewProj = NewProj (ProjectName "") User (Just Personal) "" (Right C)
 type ProjForm = Form NewProj MyWorkEvent WName
 
 instance Pane WName MyWorkEvent AddProjPane where
-  data (PaneState AddProjPane MyWorkEvent) = NP { nPF :: Maybe ProjForm
-                                                  -- Just == pane active
-                                                , nPrj :: Maybe Project
-                                                  -- reset to Nothing when nPF
-                                                  -- transitions Nothing -> Just
-                                                , nOrig :: Maybe Project
-                                                , nErr :: Maybe Text
-                                                }
+  data (PaneState AddProjPane MyWorkEvent) =
+    NP { nPF :: Maybe ProjForm
+         -- Just == pane active
+       , nPrj :: Maybe Project
+         -- ^ the new project information to be added to the mywork database.
+         -- Automatically reset to Nothing when this modal is enabled (i.e. nPF
+         -- transitions Nothing -> Just)
+       , nOrig :: Maybe Project
+         -- ^ if editing a project, this is the original project.
+       , nErr :: Maybe Text
+       }
   type (EventType AddProjPane WName MyWorkEvent) = BrickEvent WName MyWorkEvent
   initPaneState _ = NP Nothing Nothing Nothing Nothing
   drawPane ps _gs =
@@ -88,6 +91,9 @@ instance Pane WName MyWorkEvent AddProjPane where
   focusable _ ps = case nPF ps of
                      Nothing -> mempty
                      Just f -> Seq.fromList $ focusRingToList $ formFocus f
+
+  -- | When adding or editing a project, ESC cancels and C-d (done) completes the
+  -- edit.  If this is an add, ESC simply dismisses this modal and Ctrl-D
   handlePaneEvent _ = \case
     VtyEvent (Vty.EvKey Vty.KEsc []) -> nPFL %%~ const (return Nothing)
     VtyEvent (Vty.EvKey (Vty.KChar 'd') [Vty.MCtrl]) -> \s ->
@@ -135,6 +141,8 @@ instance Pane WName MyWorkEvent AddProjPane where
                 & (nPFL . _Just %%~ \w -> nestEventM' w (handleFormEvent ev))
 
 
+-- | Lens to access the ProjForm (modal Form entry widget) from the pane.  If
+-- Nothing, this pane is not active or drawn.
 nPFL :: Lens' (PaneState AddProjPane MyWorkEvent) (Maybe ProjForm)
 nPFL f s = (\n -> s { nPF = n }) <$> f (nPF s)
 
