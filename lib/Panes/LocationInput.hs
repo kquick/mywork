@@ -49,16 +49,19 @@ blankNewLoc = NewLoc (RemoteSpec "") Nothing
 type LocForm = Form NewLoc MyWorkEvent WName
 
 instance Pane WName MyWorkEvent LocationInputPane where
-  data (PaneState LocationInputPane MyWorkEvent) = NL { nLF :: Maybe LocForm
-                                                        -- Just == pane active
-                                                      , nLoc :: Maybe Location
-                                                      -- reset to Nothing when
-                                                      -- nLF transitions Nothing
-                                                      -- to Just
-                                                      , nProj :: ProjectName
-                                                      , nOrig :: Maybe Location
-                                                      , nErr :: Maybe Text
-                                                      }
+  data (PaneState LocationInputPane MyWorkEvent) =
+    NL { nLF :: Maybe LocForm
+         -- ^ Just == pane active
+       , nLoc :: Maybe Location
+         -- ^ the new location information to be added to the mywork database for
+         -- the current project.  Automatically reset to Nothing when this modal
+         -- is enabled (i.e. nLF transitions Nothing -> Just)
+       , nProj :: ProjectName
+         -- ^ The project for which this location is being added/edited`
+       , nOrig :: Maybe Location
+         -- ^ If editing, this is the original location
+       , nErr :: Maybe Text
+       }
 
   type (EventType LocationInputPane WName MyWorkEvent) = BrickEvent WName MyWorkEvent
   initPaneState _ = NL Nothing Nothing (ProjectName "") Nothing Nothing
