@@ -28,7 +28,7 @@ import           Defs
 
 
 instance Pane WName MyWorkEvent Confirm where
-  data (PaneState Confirm MyWorkEvent) = Cf { cD :: Maybe (Dialog Bool)
+  data (PaneState Confirm MyWorkEvent) = Cf { cD :: Maybe (Dialog Bool WName)
                                             , cW :: Maybe Confirm
                                             }
   type (DrawConstraints Confirm s WName) = ( HasFocus s WName )
@@ -48,7 +48,7 @@ instance Pane WName MyWorkEvent Confirm where
       Nothing -> return ps  -- shouldn't happen
       Just d -> return $ ps { cD = Nothing
                             , cW = case dialogSelection d of
-                                     Just True -> cW ps
+                                     Just (_, True) -> cW ps
                                      _ -> Nothing
                             }
     ev -> cDL . _Just %%~ \w -> nestEventM' w (handleDialogEvent ev)
@@ -56,7 +56,7 @@ instance Pane WName MyWorkEvent Confirm where
   updatePane mbCnf ps = ps { cW = mbCnf }
 
 
-cDL :: Lens' (PaneState Confirm MyWorkEvent) (Maybe (Dialog Bool))
+cDL :: Lens' (PaneState Confirm MyWorkEvent) (Maybe (Dialog Bool WName))
 cDL = lens cD (\s v -> s { cD = v })
 
 
@@ -86,6 +86,9 @@ showConfirmation :: Confirm
                  -> PaneState Confirm MyWorkEvent
 showConfirmation for _ =
   let d = dialog Nothing -- (Just $ show for)
-          (Just (1, [ ("OK", True), ("Cancel", False) ]))
+          (Just (WName "ConfCancel",
+                 [ ("OK", WName "ConfOK", True)
+                 , ("Cancel", WName "ConfCancel", False)
+                 ]))
           70  -- max width of dialog
   in Cf (Just d) (Just for)
