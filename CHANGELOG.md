@@ -1,5 +1,10 @@
 # Revision history for mywork
 
+## 1.0.2.0 -- 2023-12-27
+
+* Updated to support GHC 9.6 and GHC 9.8.
+* Updated to support brick 2.0 (with possibility of multi-platform support).
+
 ## 1.0.1.0 -- 2022-10-13
 
 ### Operational
