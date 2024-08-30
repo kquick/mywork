@@ -41,7 +41,11 @@ data ListEnt = LE { leRole :: Role
 instance Pane WName MyWorkEvent Projects where
   data (PaneState Projects MyWorkEvent) = P { pL :: List WName ListEnt
                                             , pS :: Editor Text WName
+                                              -- ^ search box
                                             , oC :: [ ListEnt ]
+                                              -- ^ original contents, in case pL
+                                              -- has been filtered by the search
+                                              -- box
                                             }
   type (InitConstraints Projects s) = ( HasProjects s )
   type (DrawConstraints Projects s WName) = ( HasFocus s WName, HasDate s )
