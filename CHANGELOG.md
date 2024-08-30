@@ -1,5 +1,9 @@
 # Revision history for mywork
 
+## 1.0.3.0 -- 2024-08-30
+
+* Bump upper bounds to support GHC 9.10.
+
 ## 1.0.2.0 -- 2023-12-27
 
 * Updated to support GHC 9.6 and GHC 9.8.
